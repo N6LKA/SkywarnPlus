@@ -1778,7 +1778,7 @@ def ast_var_update():
             grep_cmd = "grep -q '[[:blank:]]*\\[{}\\]' /etc/asterisk/rpt.conf".format(
                 ni
             )
-            if subprocess.call(grep_cmd, shell=True) == 0:
+            if subprocess.run(grep_cmd, shell=True).returncode == 0:
                 main_cmd = (
                     'asterisk -rx "rpt setvar {} cpu_up=\\"{}\\" cpu_load=\\"{}\\" cpu_temp=\\"{}\\" WX=\\"{}\\" LOGS=\\"{}\\" REGISTRATIONS=\\"{}\\""'
                 ).format(ni, cpu_up, cpu_load, cputemp_disp, wx, logs, registrations)
@@ -1791,7 +1791,7 @@ def ast_var_update():
 
                 LOGGER.debug("ast_var_update: Running main command: %s", main_cmd)
                 try:
-                    subprocess.call(main_cmd, shell=True)
+                    subprocess.run(main_cmd, shell=True, check=True)
                 except subprocess.CalledProcessError as e:
                     LOGGER.error(
                         "ast_var_update: Error running main command for node %s: %s",
@@ -1801,7 +1801,7 @@ def ast_var_update():
 
                 LOGGER.debug("ast_var_update: Running alert command: %s", alert_cmd)
                 try:
-                    subprocess.call(alert_cmd, shell=True)
+                    subprocess.run(alert_cmd, shell=True, check=True)
                 except subprocess.CalledProcessError as e:
                     LOGGER.error(
                         "ast_var_update: Error running alert command for node %s: %s",
