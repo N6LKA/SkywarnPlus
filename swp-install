@@ -109,7 +109,12 @@ install_dependencies() {
         apt update
         if [ "$SYSTEM_TYPE" = "ASL1/2" ]; then
             apt install -y unzip python3 python3-pip ffmpeg
-            pip3 install ruamel.yaml requests python-dateutil pydub
+            # Detect if pip is blocked by PEP 668 (Debian 12+) and add flag if needed
+            PIP_ARGS=""
+            if compgen -G "/usr/lib/python3*/EXTERNALLY-MANAGED" > /dev/null 2>&1; then
+                PIP_ARGS="--break-system-packages"
+            fi
+            pip3 install $PIP_ARGS ruamel.yaml requests python-dateutil pydub
         else
             apt install -y unzip python3 python3-pip ffmpeg python3-ruamel.yaml python3-requests python3-dateutil python3-pydub
         fi
@@ -165,8 +170,9 @@ Please choose an option (Y/n): " INSTALL_OPTION
 download_swp() {
     print_divider
     echo "Downloading SkywarnPlus..."
-    wget -q -P /usr/local/bin https://github.com/Mason10198/SkywarnPlus/releases/latest/download/SkywarnPlus.zip
+    wget -q -O /usr/local/bin/SkywarnPlus.zip https://github.com/N6LKA/SkywarnPlus/archive/refs/heads/main.zip
     unzip /usr/local/bin/SkywarnPlus.zip -d /usr/local/bin
+    mv /usr/local/bin/SkywarnPlus-main /usr/local/bin/SkywarnPlus
     rm /usr/local/bin/SkywarnPlus.zip
 }
 
