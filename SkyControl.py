@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 """
-SkyControl.py v0.8.0 by Mason Nelson
+SkyControl.py by Mason Nelson
 ==================================
 A Control Script for SkywarnPlus
 
@@ -32,6 +32,10 @@ from ruamel.yaml import YAML
 
 # Use ruamel.yaml instead of PyYAML to preserve comments in the config file
 yaml = YAML()
+
+BASE_DIR = os.path.dirname(os.path.realpath(__file__))
+with open(os.path.join(BASE_DIR, "version.txt")) as _vf:
+    __version__ = _vf.read().strip()
 
 
 def changeCT(ct_mode):
