@@ -1761,13 +1761,13 @@ def ast_var_update():
         alert_content = ""
 
     if not MASTER_ENABLE:
-        alert = "<span style='color: darkorange;'><b><u><a href='https://github.com/mason10198/SkywarnPlus' style='color: inherit; text-decoration: none;'>SkywarnPlus Disabled</a></u></b></span>"
+        alert = "<span style='color: darkorange;'><b><u><a href='https://github.com/N6LKA/SkywarnPlus' style='color: inherit; text-decoration: none;'>SkywarnPlus Disabled</a></u></b></span>"
     elif not alert_content:
-        alert = "<span style='color: green;'><b><u><a href='https://github.com/mason10198/SkywarnPlus' style='color: inherit; text-decoration: none;'>SkywarnPlus Enabled</a></u><br>No Alerts</b></span>"
+        alert = "<span style='color: green;'><b><u><a href='https://github.com/N6LKA/SkywarnPlus' style='color: inherit; text-decoration: none;'>SkywarnPlus Enabled</a></u><br>No Alerts</b></span>"
     else:
         # Adjusted to remove both '[' and ']' correctly
         alert_content_cleaned = alert_content.replace("[", "").replace("]", "")
-        alert = "<span style='color: green;'><b><u><a href='https://github.com/mason10198/SkywarnPlus' style='color: inherit; text-decoration: none;'>SkywarnPlus Enabled</a></u><br><span style='color: red;'>{}</span></b></span>".format(
+        alert = "<span style='color: green;'><b><u><a href='https://github.com/N6LKA/SkywarnPlus' style='color: inherit; text-decoration: none;'>SkywarnPlus Enabled</a></u><br><span style='color: red;'>{}</span></b></span>".format(
             alert_content
         )
 
