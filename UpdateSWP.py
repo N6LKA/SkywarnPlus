@@ -176,7 +176,7 @@ shutil.make_archive(zip_name, "zip", root_dir)
 
 # Download the new zip from GitHub
 url = (
-    "https://github.com/Mason10198/SkywarnPlus/releases/latest/download/SkywarnPlus.zip"
+    "https://github.com/N6LKA/SkywarnPlus/archive/refs/heads/main.zip"
 )
 log("Downloading SkywarnPlus from {}...".format(url))
 response = requests.get(url)
@@ -184,15 +184,21 @@ response = requests.get(url)
 with open("/tmp/SkywarnPlus.zip", "wb") as out_file:
     out_file.write(response.content)
 
-# Delete /tmp/SkywarnPlus if it already exists
+# Delete /tmp/SkywarnPlus and /tmp/SkywarnPlus-main if they already exist
 if os.path.isdir("/tmp/SkywarnPlus"):
     log("Removing old /tmp/SkywarnPlus directory...")
     shutil.rmtree("/tmp/SkywarnPlus")
+if os.path.isdir("/tmp/SkywarnPlus-main"):
+    log("Removing old /tmp/SkywarnPlus-main directory...")
+    shutil.rmtree("/tmp/SkywarnPlus-main")
 
 # Unzip the downloaded file
 log("Extracting SkywarnPlus.zip...")
 with zipfile.ZipFile("/tmp/SkywarnPlus.zip", "r") as zip_ref:
     zip_ref.extractall("/tmp")
+
+# GitHub archive extracts as SkywarnPlus-main, rename to SkywarnPlus
+os.rename("/tmp/SkywarnPlus-main", "/tmp/SkywarnPlus")
 
 # Merge the old config with the new config
 log("Merging old config with new config...")
