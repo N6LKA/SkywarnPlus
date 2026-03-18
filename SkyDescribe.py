@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 """
-SkyDescribe.py v0.8.0 by Mason Nelson
+SkyDescribe.py by Mason Nelson
 ==================================================
 Text to Speech conversion for Weather Descriptions
 
@@ -41,6 +41,8 @@ YAML = YAML()
 
 # Directories and Paths
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
+with open(os.path.join(BASE_DIR, "version.txt")) as _vf:
+    __version__ = _vf.read().strip()
 CONFIG_PATH = os.path.join(BASE_DIR, "config.yaml")
 
 # Open and read configuration file

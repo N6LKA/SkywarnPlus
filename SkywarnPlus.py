@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 """
-SkywarnPlus.py v0.8.0 by Mason Nelson
+SkywarnPlus.py by Mason Nelson
 ===============================================================================
 SkywarnPlus is a utility that retrieves severe weather alerts from the National 
 Weather Service and integrates these alerts with an Asterisk/app_rpt based 
@@ -52,6 +52,8 @@ yaml = YAML()
 
 # Directories and Paths
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
+with open(os.path.join(BASE_DIR, "version.txt")) as _vf:
+    __version__ = _vf.read().strip()
 CONFIG_PATH = os.path.join(BASE_DIR, "config.yaml")
 COUNTY_CODES_PATH = os.path.join(BASE_DIR, "CountyCodes.md")
 
