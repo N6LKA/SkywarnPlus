@@ -1,4 +1,4 @@
-![SkywarnPlus Logo](https://raw.githubusercontent.com/Mason10198/SkywarnPlus/main/Logo_SWP.svg)
+![SkywarnPlus Logo](https://raw.githubusercontent.com/N6LKA/SkywarnPlus/main/Logo_SWP.svg)
 
 ![Release Version](https://img.shields.io/github/v/release/N6LKA/SkywarnPlus?label=Version&color=f15d24)
 ![Release Date](https://img.shields.io/github/release-date/N6LKA/SkywarnPlus?label=Released&color=f15d24)
@@ -156,7 +156,7 @@ SkywarnPlus supports all 128 alert types included in the [NWS v1.2 API](https://
 ## Automated Installation
 1. Access the terminal of your node and execute the following command as `root`:
    ```bash
-   bash -c "$(curl -fsSL https://raw.githubusercontent.com/Mason10198/SkywarnPlus/main/swp-install)"
+   bash -c "$(curl -fsSL https://raw.githubusercontent.com/N6LKA/SkywarnPlus/main/swp-install)"
    ```
 2. Continue with [Configuration](#configuration).
 
@@ -886,7 +886,7 @@ fi
 ```
 
 ### SkywarnPlus Integration with Supermon 2 Upgraded
-Beginning with SkywarnPlus release [v0.8.0](https://github.com/Mason10198/SkywarnPlus/releases/tag/v0.8.0) (7/21/24), a function was added to emulate the functionality of `ast_var_update.sh` in an enhanced way. This allows proper display of alert information from SkywarnPlus in Supermon 2, without broken hyperlinks.
+Beginning with SkywarnPlus release [v0.8.0](https://github.com/N6LKA/SkywarnPlus/releases/tag/v0.8.0) (7/21/24), a function was added to emulate the functionality of `ast_var_update.sh` in an enhanced way. This allows proper display of alert information from SkywarnPlus in Supermon 2, without broken hyperlinks.
 
 # Manual Installation
 SkywarnPlus is recommended to be installed at the `/usr/local/bin/SkywarnPlus` location on both Debian and Arch systems.
@@ -934,7 +934,7 @@ Follow the steps below to install:
 
    ```bash
    cd /usr/local/bin
-   wget https://github.com/Mason10198/SkywarnPlus/releases/latest/download/SkywarnPlus.zip
+   wget https://github.com/N6LKA/SkywarnPlus/releases/latest/download/SkywarnPlus.zip
    unzip SkywarnPlus.zip
    rm SkywarnPlus.zip
    ```
@@ -1031,13 +1031,13 @@ This command will launch an Asterisk console with a verbose output level of 3 (`
 
 Remember, the more detailed your debug output is, the easier it will be to spot any issues. However, please be aware that enabling debug mode can result in large amounts of output, so it should be used judiciously.
 
-If you encounter any issues that you're unable to resolve, please don't hesitate to submit a detailed bug report on the [SkywarnPlus GitHub Repository](https://github.com/mason10198/SkywarnPlus).
+If you encounter any issues that you're unable to resolve, please don't hesitate to submit a detailed bug report on the [SkywarnPlus GitHub Repository](https://github.com/N6LKA/SkywarnPlus).
 
 # Maintenance and Bug Reporting
 
 SkywarnPlus is actively maintained by a single individual who dedicates their spare time to improve and manage this project. Despite best efforts, the application may have some bugs or areas for improvement.
 
-If you encounter any issues with SkywarnPlus, please check back to the [SkywarnPlus GitHub Repository](https://github.com/mason10198/SkywarnPlus) to see if there have been any updates or fixes since the last time you downloaded it. New commits are made regularly to enhance the system's performance and rectify any known issues.
+If you encounter any issues with SkywarnPlus, please check back to the [SkywarnPlus GitHub Repository](https://github.com/N6LKA/SkywarnPlus) to see if there have been any updates or fixes since the last time you downloaded it. New commits are made regularly to enhance the system's performance and rectify any known issues.
 
 Bug reporting is greatly appreciated as it helps to improve SkywarnPlus. If you spot a bug, please raise an issue in the GitHub repository detailing the problem. Include as much information as possible, such as error messages, screenshots, and steps to reproduce the issue. This will assist in quickly understanding and resolving the issue.
 
