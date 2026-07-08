@@ -43,7 +43,101 @@ import sys
 import itertools
 from datetime import datetime, timezone, timedelta
 from dateutil import parser
-from pydub import AudioSegment
+# Pure-Python WAV audio helper replacing pydub (removed audioop in Python 3.13+)
+import array as _array
+import struct as _struct
+
+
+class WavSegment:
+    """Drop-in replacement for pydub.AudioSegment using only the built-in wave module."""
+
+    def __init__(self, data=b'', frame_rate=8000, channels=1, sample_width=2):
+        self._data = data
+        self.frame_rate = frame_rate
+        self.channels = channels
+        self.sample_width = sample_width
+
+    @classmethod
+    def from_wav(cls, path):
+        with wave.open(str(path), 'rb') as wf:
+            return cls(
+                data=wf.readframes(wf.getnframes()),
+                frame_rate=wf.getframerate(),
+                channels=wf.getnchannels(),
+                sample_width=wf.getsampwidth(),
+            )
+
+    @classmethod
+    def silent(cls, duration=0, frame_rate=8000):
+        num_frames = int(frame_rate * duration / 1000)
+        return cls(data=b'\x00' * num_frames * 2, frame_rate=frame_rate, channels=1, sample_width=2)
+
+    @classmethod
+    def empty(cls):
+        return cls()
+
+    def __bool__(self):
+        return len(self._data) > 0
+
+    def _to_8k_mono_16(self):
+        data = self._data
+        rate = self.frame_rate
+        ch = self.channels
+        width = self.sample_width
+        if width == 1:
+            samples = _struct.unpack(f'{len(data)}B', data)
+            data = _struct.pack(f'{len(samples)}h', *((s - 128) * 256 for s in samples))
+            width = 2
+        elif width == 4:
+            n = len(data) // 4
+            samples = _struct.unpack(f'{n}i', data)
+            data = _struct.pack(f'{n}h', *(s >> 16 for s in samples))
+            width = 2
+        if ch == 2:
+            samps = _array.array('h', data)
+            mono = _array.array('h', ((samps[i] + samps[i + 1]) // 2 for i in range(0, len(samps), 2)))
+            data = mono.tobytes()
+            ch = 1
+        if rate != 8000:
+            samps = _array.array('h', data)
+            ratio = 8000 / rate
+            new_len = int(len(samps) * ratio)
+            out = _array.array('h')
+            for i in range(new_len):
+                src = i / ratio
+                idx = int(src)
+                frac = src - idx
+                if idx + 1 < len(samps):
+                    s = int(samps[idx] * (1 - frac) + samps[idx + 1] * frac)
+                else:
+                    s = samps[min(idx, len(samps) - 1)]
+                out.append(max(-32768, min(32767, s)))
+            data = out.tobytes()
+        return data
+
+    def set_frame_rate(self, rate):
+        if rate == self.frame_rate and self.channels == 1 and self.sample_width == 2:
+            return WavSegment(self._data, self.frame_rate, self.channels, self.sample_width)
+        return WavSegment(self._to_8k_mono_16(), 8000, 1, 2)
+
+    def set_channels(self, channels):
+        if channels == self.channels and self.frame_rate == 8000 and self.sample_width == 2:
+            return WavSegment(self._data, self.frame_rate, self.channels, self.sample_width)
+        return WavSegment(self._to_8k_mono_16(), 8000, 1, 2)
+
+    def __add__(self, other):
+        a = self._to_8k_mono_16()
+        b = other._to_8k_mono_16()
+        return WavSegment(a + b, 8000, 1, 2)
+
+    def export(self, path, format='wav'):
+        data = self._to_8k_mono_16()
+        with wave.open(str(path), 'wb') as wf:
+            wf.setnchannels(1)
+            wf.setsampwidth(2)
+            wf.setframerate(8000)
+            wf.writeframes(data)
+
 from ruamel.yaml import YAML
 from collections import OrderedDict
 
@@ -757,8 +851,8 @@ def say_alerts(alerts):
 
     # Initialize the audio segments and paths
     alert_file = "{}/alert.wav".format(TMP_DIR)
-    word_space = AudioSegment.silent(duration=600)
-    sound_effect = AudioSegment.from_wav(
+    word_space = WavSegment.silent(duration=600)
+    sound_effect = WavSegment.from_wav(
         os.path.join(
             SOUNDS_PATH,
             "ALERTS",
@@ -766,7 +860,7 @@ def say_alerts(alerts):
             config.get("Alerting", {}).get("AlertSeperator", "Woodblock.wav"),
         )
     )
-    intro_effect = AudioSegment.from_wav(
+    intro_effect = WavSegment.from_wav(
         os.path.join(
             SOUNDS_PATH,
             "ALERTS",
@@ -777,7 +871,7 @@ def say_alerts(alerts):
     combined_sound = (
         intro_effect
         + word_space
-        + AudioSegment.from_wav(os.path.join(SOUNDS_PATH, "ALERTS", "SWP_148.wav"))
+        + WavSegment.from_wav(os.path.join(SOUNDS_PATH, "ALERTS", "SWP_148.wav"))
     )
 
     # Build the combined sound with alerts and county names
@@ -788,7 +882,7 @@ def say_alerts(alerts):
                 descriptions = [county["description"] for county in counties]
                 end_times = [county["end_time_utc"] for county in counties]
                 index = ALERT_STRINGS.index(ALERT_ALIASES.get(alert, alert))
-                audio_file = AudioSegment.from_wav(
+                audio_file = WavSegment.from_wav(
                     os.path.join(
                         SOUNDS_PATH, "ALERTS", "SWP_{}.wav".format(ALERT_INDEXES[index])
                     )
@@ -805,20 +899,20 @@ def say_alerts(alerts):
                             "sayAlert: Found multiple unique instances of the alert %s",
                             alert,
                         )
-                        multiples_sound = AudioSegment.from_wav(
+                        multiples_sound = WavSegment.from_wav(
                             os.path.join(SOUNDS_PATH, "ALERTS", "SWP_149.wav")
                         )
                         combined_sound += (
-                            AudioSegment.silent(duration=200) + multiples_sound
+                            WavSegment.silent(duration=200) + multiples_sound
                         )
                 alert_count += 1
 
                 added_county_codes = set()
                 for county in counties:
                     if counties.index(county) == 0:
-                        word_space = AudioSegment.silent(duration=600)
+                        word_space = WavSegment.silent(duration=600)
                     else:
-                        word_space = AudioSegment.silent(duration=400)
+                        word_space = WavSegment.silent(duration=400)
                     county_code = county["county_code"]
                     if (
                         COUNTY_WAVS
@@ -834,7 +928,7 @@ def say_alerts(alerts):
                             alert,
                         )
                         try:
-                            combined_sound += word_space + AudioSegment.from_wav(
+                            combined_sound += word_space + WavSegment.from_wav(
                                 os.path.join(SOUNDS_PATH, county_name_file)
                             )
                         except FileNotFoundError:
@@ -845,7 +939,7 @@ def say_alerts(alerts):
                         added_county_codes.add(county_code)
 
                         if counties.index(county) == len(counties) - 1:
-                            combined_sound += AudioSegment.silent(duration=600)
+                            combined_sound += WavSegment.silent(duration=600)
 
             except ValueError:
                 LOGGER.error("sayAlert: Alert not found: %s", alert)
@@ -862,15 +956,15 @@ def say_alerts(alerts):
 
     alert_suffix = config.get("Alerting", {}).get("SayAlertSuffix", None)
     if alert_suffix is not None:
-        suffix_silence = AudioSegment.silent(duration=600)
+        suffix_silence = WavSegment.silent(duration=600)
         LOGGER.debug("sayAlert: Adding alert suffix %s", alert_suffix)
         suffix_file = os.path.join(SOUNDS_PATH, alert_suffix)
-        suffix_sound = AudioSegment.from_wav(suffix_file)
+        suffix_sound = WavSegment.from_wav(suffix_file)
         combined_sound += suffix_silence + suffix_sound
 
     if AUDIO_DELAY > 0:
         LOGGER.debug("sayAlert: Prepending audio with %sms of silence", AUDIO_DELAY)
-        silence = AudioSegment.silent(duration=AUDIO_DELAY)
+        silence = WavSegment.silent(duration=AUDIO_DELAY)
         combined_sound = silence + combined_sound
 
     LOGGER.debug("sayAlert: Exporting alert sound to %s", alert_file)
@@ -878,7 +972,7 @@ def say_alerts(alerts):
     converted_combined_sound.export(alert_file, format="wav")
 
     LOGGER.debug("sayAlert: Replacing tailmessage with silence")
-    silence = AudioSegment.silent(duration=100)
+    silence = WavSegment.silent(duration=100)
     converted_silence = convert_audio(silence)
     converted_silence.export(TAILMESSAGE_FILE, format="wav")
 
@@ -924,12 +1018,12 @@ def say_allclear():
     )
     swp_147_file = os.path.join(SOUNDS_PATH, "ALERTS", "SWP_147.wav")
 
-    # Load sound files into AudioSegment objects
-    all_clear_sound = AudioSegment.from_wav(all_clear_sound_file)
-    swp_147_sound = AudioSegment.from_wav(swp_147_file)
+    # Load sound files into WavSegment objects
+    all_clear_sound = WavSegment.from_wav(all_clear_sound_file)
+    swp_147_sound = WavSegment.from_wav(swp_147_file)
 
     # Generate silence for spacing between sounds
-    silence = AudioSegment.silent(duration=600)  # 600 ms of silence
+    silence = WavSegment.silent(duration=600)  # 600 ms of silence
 
     # Combine the "all clear" sound and SWP_147 sound with the configured silence between them
     combined_sound = all_clear_sound + silence + swp_147_sound
@@ -937,19 +1031,19 @@ def say_allclear():
     # Add a delay before the sound if configured
     if AUDIO_DELAY > 0:
         LOGGER.debug("sayAllClear: Prepending audio with %sms of silence", AUDIO_DELAY)
-        delay_silence = AudioSegment.silent(duration=AUDIO_DELAY)
+        delay_silence = WavSegment.silent(duration=AUDIO_DELAY)
         combined_sound = delay_silence + combined_sound
 
     # Append a suffix to the sound if configured
     if config.get("Alerting", {}).get("SayAllClearSuffix", None) is not None:
-        suffix_silence = AudioSegment.silent(
+        suffix_silence = WavSegment.silent(
             duration=600
         )  # 600ms silence before the suffix
         suffix_file = os.path.join(
             SOUNDS_PATH, config.get("Alerting", {}).get("SayAllClearSuffix")
         )
         LOGGER.debug("sayAllClear: Adding all clear suffix %s", suffix_file)
-        suffix_sound = AudioSegment.from_wav(suffix_file)
+        suffix_sound = WavSegment.from_wav(suffix_file)
         combined_sound += (
             suffix_silence + suffix_sound
         )  # Append the silence and then the suffix to the combined sound
@@ -989,13 +1083,13 @@ def build_tailmessage(alerts):
     # If alerts is empty
     if not alerts:
         LOGGER.debug("buildTailMessage: No alerts, creating silent tailmessage")
-        silence = AudioSegment.silent(duration=100)
+        silence = WavSegment.silent(duration=100)
         converted_silence = convert_audio(silence)
         converted_silence.export(TAILMESSAGE_FILE, format="wav")
         return
 
-    combined_sound = AudioSegment.empty()
-    sound_effect = AudioSegment.from_wav(
+    combined_sound = WavSegment.empty()
+    sound_effect = WavSegment.from_wav(
         os.path.join(
             SOUNDS_PATH,
             "ALERTS",
@@ -1020,7 +1114,7 @@ def build_tailmessage(alerts):
 
         try:
             index = ALERT_STRINGS.index(ALERT_ALIASES.get(alert, alert))
-            audio_file = AudioSegment.from_wav(
+            audio_file = WavSegment.from_wav(
                 os.path.join(
                     SOUNDS_PATH, "ALERTS", "SWP_{}.wav".format(ALERT_INDEXES[index])
                 )
@@ -1040,11 +1134,11 @@ def build_tailmessage(alerts):
                         "buildTailMessage: Found multiple unique instances of the alert %s",
                         alert,
                     )
-                    multiples_sound = AudioSegment.from_wav(
+                    multiples_sound = WavSegment.from_wav(
                         os.path.join(SOUNDS_PATH, "ALERTS", "SWP_149.wav")
                     )
                     combined_sound += (
-                        AudioSegment.silent(duration=200) + multiples_sound
+                        WavSegment.silent(duration=200) + multiples_sound
                     )
 
             # Add county names if they exist
@@ -1052,9 +1146,9 @@ def build_tailmessage(alerts):
                 for county in counties:
                     # if its the first county, word_space is 600ms of silence. else it is 400ms
                     if counties.index(county) == 0:
-                        word_space = AudioSegment.silent(duration=600)
+                        word_space = WavSegment.silent(duration=600)
                     else:
-                        word_space = AudioSegment.silent(duration=400)
+                        word_space = WavSegment.silent(duration=400)
                     county_code = county["county_code"]
                     if (
                         COUNTY_WAVS
@@ -1070,12 +1164,12 @@ def build_tailmessage(alerts):
                             alert,
                         )
                         try:
-                            combined_sound += word_space + AudioSegment.from_wav(
+                            combined_sound += word_space + WavSegment.from_wav(
                                 os.path.join(SOUNDS_PATH, county_name_file)
                             )
                             # if this is the last county name, add 600ms of silence after the county name
                             if counties.index(county) == len(counties) - 1:
-                                combined_sound += AudioSegment.silent(duration=600)
+                                combined_sound += WavSegment.silent(duration=600)
                             added_counties.add(county_code)
                         except FileNotFoundError:
                             LOGGER.error(
@@ -1092,25 +1186,25 @@ def build_tailmessage(alerts):
                 ALERT_INDEXES[index],
             )
 
-    if combined_sound.empty():
+    if not combined_sound:
         LOGGER.debug(
             "buildTailMessage: All alerts were blocked, creating silent tailmessage"
         )
-        combined_sound = AudioSegment.silent(duration=100)
+        combined_sound = WavSegment.silent(duration=100)
     elif tailmessage_suffix is not None:
-        suffix_silence = AudioSegment.silent(duration=1000)
+        suffix_silence = WavSegment.silent(duration=1000)
         LOGGER.debug(
             "buildTailMessage: Adding tailmessage suffix %s", tailmessage_suffix
         )
         suffix_file = os.path.join(SOUNDS_PATH, tailmessage_suffix)
-        suffix_sound = AudioSegment.from_wav(suffix_file)
+        suffix_sound = WavSegment.from_wav(suffix_file)
         combined_sound += suffix_silence + suffix_sound
 
     if AUDIO_DELAY > 0:
         LOGGER.debug(
             "buildTailMessage: Prepending audio with %sms of silence", AUDIO_DELAY
         )
-        silence = AudioSegment.silent(duration=AUDIO_DELAY)
+        silence = WavSegment.silent(duration=AUDIO_DELAY)
         combined_sound = silence + combined_sound
 
     converted_combined_sound = convert_audio(combined_sound)
@@ -2149,7 +2243,7 @@ def main():
             LOGGER.info("No change in alerts.")
             LOGGER.info("Current alerts: %s.", current_alerts)
 
-        # If this is being run interactively, only log if debug is enabled
+        # If this is being run non-interactively, only log if debug is enabled
         else:
             LOGGER.debug("No change in alerts.")
 
