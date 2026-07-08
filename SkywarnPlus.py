@@ -248,6 +248,11 @@ ALERT_STRINGS = [
 # Generate the WA list based on the length of WS
 ALERT_INDEXES = [str(i + 1) for i in range(len(ALERT_STRINGS))]
 
+# Map NWS alert names that differ from SkywarnPlus's known names to their equivalents
+ALERT_ALIASES = {
+    "Extreme Heat Warning": "Excessive Heat Warning",
+}
+
 # Test if the script needs to start from a clean slate
 CLEANSLATE = config.get("DEV", {}).get("CLEANSLATE", False)
 if CLEANSLATE:
@@ -782,7 +787,7 @@ def say_alerts(alerts):
             try:
                 descriptions = [county["description"] for county in counties]
                 end_times = [county["end_time_utc"] for county in counties]
-                index = ALERT_STRINGS.index(alert)
+                index = ALERT_STRINGS.index(ALERT_ALIASES.get(alert, alert))
                 audio_file = AudioSegment.from_wav(
                     os.path.join(
                         SOUNDS_PATH, "ALERTS", "SWP_{}.wav".format(ALERT_INDEXES[index])
@@ -1014,7 +1019,7 @@ def build_tailmessage(alerts):
             continue
 
         try:
-            index = ALERT_STRINGS.index(alert)
+            index = ALERT_STRINGS.index(ALERT_ALIASES.get(alert, alert))
             audio_file = AudioSegment.from_wav(
                 os.path.join(
                     SOUNDS_PATH, "ALERTS", "SWP_{}.wav".format(ALERT_INDEXES[index])
@@ -2144,7 +2149,7 @@ def main():
             LOGGER.info("No change in alerts.")
             LOGGER.info("Current alerts: %s.", current_alerts)
 
-        # If this is being run non-interactively, only log if debug is enabled
+        # If this is being run interactively, only log if debug is enabled
         else:
             LOGGER.debug("No change in alerts.")
 
