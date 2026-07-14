@@ -154,7 +154,7 @@ Please choose an option (Y/n): " INSTALL_OPTION
             print_divider
             echo "Switching to UpdateSWP.py..."
             print_divider
-            /usr/local/bin/SkywarnPlus/UpdateSWP.py
+            cd /usr/local/bin/SkywarnPlus && ./UpdateSWP.py
             exit 0
         else
             BACKUP_DIR="/usr/local/bin/SkywarnPlus_$(date +'%m-%d-%Y')"
@@ -341,4 +341,5 @@ main() {
 }
 
 main
+
 
