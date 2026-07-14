@@ -147,8 +147,11 @@ def display_update_warning():
 if os.geteuid() != 0:
     exit("ERROR: This script must be run as root.")
 
+# Determine the directory this script lives in (works regardless of CWD)
+script_dir = os.path.dirname(os.path.realpath(__file__))
+
 # Make sure the script is in the right directory
-if not os.path.isfile("SkywarnPlus.py"):
+if not os.path.isfile(os.path.join(script_dir, "SkywarnPlus.py")):
     print(
         "ERROR: Cannot find SkywarnPlus.py. Make sure this script is in the SkywarnPlus directory."
     )
@@ -163,8 +166,8 @@ if not args.force:
         log("Update cancelled by user.")
         exit()
 
-# Zip the current directory
-root_dir = os.getcwd()
+# Root dir is the SkywarnPlus install directory
+root_dir = script_dir
 log("Current directory is {}".format(root_dir))
 
 # Full path to the archive
@@ -202,7 +205,7 @@ os.rename("/tmp/SkywarnPlus-main", "/tmp/SkywarnPlus")
 
 # Merge the old config with the new config
 log("Merging old config with new config...")
-merge_yaml_files("config.yaml", "/tmp/SkywarnPlus/config.yaml")
+merge_yaml_files(os.path.join(root_dir, "config.yaml"), "/tmp/SkywarnPlus/config.yaml")
 
 # Remove duplicate comments from config.yaml
 remove_duplicate_comments("/tmp/SkywarnPlus/config.yaml")
