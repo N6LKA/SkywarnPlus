@@ -429,6 +429,30 @@ Logging:
 
 ################################################################################################################################
 
+Allmon3:
+  # Enable Allmon3 integration. When enabled, Allmon3_Compat.py (running as root via cron)
+  # writes swp-data.json and swp-alerts.html to the Allmon3 web root every minute.
+  # Add 'iframepre = swp-alerts.html' to the desired node stanza in /etc/allmon3/allmon3.ini
+  # to display the panel above that node's connection list in Allmon3.
+  Enable: false
+
+  # Path to the Allmon3 web root directory.
+  WebRoot: /usr/share/allmon3
+
+  # Enable current weather conditions display above the alert list.
+  # Uses the free wttr.in API — no API key required.
+  WeatherEnable: false
+
+  # Location for weather lookup. Accepts ZIP code, city name, or ICAO airport code.
+  # Examples:  92376   or   Rialto, CA   or   KONT
+  WeatherLocation: ""
+
+  # Label shown before the weather line (e.g. your city name).
+  # Leave blank to show weather with no label.
+  WeatherLabel: ""
+
+################################################################################################################################
+
 DEV:
   # Configuration for development and testing.
 
@@ -468,27 +492,3 @@ DEV:
   - Title: "Tornado Warning"
   - Title: "Tornado Watch"
   - Title: "Severe Thunderstorm Warning"
-
-################################################################################################################################
-
-Allmon3:
-  # Enable Allmon3 integration. When enabled, Allmon3_Compat.py (running as root via cron)
-  # writes swp-data.json and swp-alerts.html to the Allmon3 web root every minute.
-  # Add 'iframepre = swp-alerts.html' to the desired node stanza in /etc/allmon3/allmon3.ini
-  # to display the panel above that node's connection list in Allmon3.
-  Enable: false
-
-  # Path to the Allmon3 web root directory.
-  WebRoot: /usr/share/allmon3
-
-  # Enable current weather conditions display above the alert list.
-  # Uses the free wttr.in API — no API key required.
-  WeatherEnable: false
-
-  # Location for weather lookup. Accepts ZIP code, city name, or ICAO airport code.
-  # Examples:  92376   or   Rialto, CA   or   KONT
-  WeatherLocation: ""
-
-  # Label shown before the weather line (e.g. your city name).
-  # Leave blank to show weather with no label.
-  WeatherLabel: ""
