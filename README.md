@@ -48,7 +48,7 @@
     - [Manual Setup](#manual-setup)
 - [Supermon Integration](#supermon-integration)
   - [AutoSkywarn vs. AUTOSKY](#autoskywarn-vs-autosky)
-  - [Supermon 6.1 - 7.4](#supermon-61---74)
+  - [Supermon 6 - 8+](#supermon-6---8)
   - [Supermon 2](#supermon-2)
     - [ast\_var\_update.sh](#ast_var_updatesh)
     - [SkywarnPlus Integration with Supermon 2 Upgraded](#skywarnplus-integration-with-supermon-2-upgraded)
@@ -154,11 +154,28 @@ SkywarnPlus supports all 128 alert types included in the [NWS v1.2 API](https://
 # Installation
 
 ## Automated Installation
+
+**Stable (recommended):** installs from `main` — the current release.
+
 1. Access the terminal of your node and execute the following command as `root`:
    ```bash
    bash -c "$(curl -fsSL https://raw.githubusercontent.com/N6LKA/SkywarnPlus/main/swp-install)"
    ```
 2. Continue with [Configuration](#configuration).
+
+**Development (testing only):** installs from `develop` — features currently in progress ahead of the next release.
+
+> [!WARNING]
+> `develop` may contain incomplete, untested, or broken features at any given time. Only use this on a system where you can tolerate things not working correctly. Do not use it on a repeater you depend on for daily use.
+
+```bash
+curl -fsSL "https://github.com/N6LKA/SkywarnPlus/archive/refs/heads/develop.tar.gz" \
+  | tar -xzO SkywarnPlus-develop/swp-install \
+  | sudo BRANCH=develop bash
+```
+
+> [!NOTE]
+> The tarball form is used instead of a raw GitHub URL because `raw.githubusercontent.com` is CDN-cached and can serve a stale `swp-install` for an extended period. The tarball goes through GitHub's codeload service, which always returns the current commit.
 
 > [!NOTE]
 > To install manually, see [Manual Installation](#manual-installation).
@@ -769,8 +786,8 @@ All of the integration functionality implemented by SkywarnPlus described below 
 ## AutoSkywarn vs. AUTOSKY
 The original AutoSkywarn (KF5VH) was forked and modified to create the very similar AUTOSKY (HamVoIP). For the purposes of this document, they are considered the same.
 
-## Supermon 6.1 - 7.4
-In Supermon versions 6.1 - 7.4, the following code segment was added to `link.php` to ingest plaintext alert titles from a file created by AUTOSKY:
+## Supermon 6 - 8+
+In Supermon versions 6 - 8+, the following code segment was added to `link.php` to ingest plaintext alert titles from a file created by AUTOSKY:
 
 ```php
 // ADDED WA3DSP Autosky warning messages
@@ -784,7 +801,7 @@ if (file_exists("/tmp/AUTOSKY/warnings.txt")) {
 // END WA3DSP
 ```
 
-This code segment in Supermon versions 6.1 - 7.4 simply adds the entire contents of the `/tmp/AUTOSKY/warnings.txt` text file to the webpage, colors them red, and makes them bold. The contents of `/tmp/AUTOSKY/warnings.txt` would look like this:
+This code segment in Supermon versions 6 - 8+ simply adds the entire contents of the `/tmp/AUTOSKY/warnings.txt` text file to the webpage, colors them red, and makes them bold. The contents of `/tmp/AUTOSKY/warnings.txt` would look like this:
 
 ```
 Tornado Warning
@@ -792,7 +809,7 @@ Severe Thunderstorm Warning
 Tornado Watch
 ```
 
-A workaround called `SupermonCompat` was added to SkywarnPlus so that the alert titles would still be displayed in Supermon. This feature simply adds alert titles to `/tmp/AUTOSKY/warnings.txt` so that Supermon versions 6.1 - 7.4 can display them.
+A workaround called `SupermonCompat` was added to SkywarnPlus so that the alert titles would still be displayed in Supermon. This feature simply adds alert titles to `/tmp/AUTOSKY/warnings.txt` so that Supermon versions 6 - 8+ can display them.
 
 ## Supermon 2
 
@@ -1047,9 +1064,9 @@ Thank you for your understanding and assistance in making SkywarnPlus a more rob
 
 SkywarnPlus is open-source and welcomes contributions. If you'd like to contribute, please fork the repository and use a feature branch. Pull requests are warmly welcome.
 
-If the spare time I put into the development of SkywarnPlus has helped you, please consider supporting!
+If the work put into maintaining and improving SkywarnPlus has helped you, please consider supporting!
 
-<p align="center"><a href="https://www.paypal.com/donate/?business=93AJFB9BAVSJL&no_recurring=0&item_name=Thank+you+so+much+for+your+support%21+I+put+a+lot+of+my+spare+time+into+this%2C+and+I+sincerely+appreciate+YOU%21&currency_code=USD"><img src="https://raw.githubusercontent.com/stefan-niedermann/paypal-donate-button/master/paypal-donate-button.png" width=300px alt="Donate with PayPal"/></a></p>
+<p align="center"><a href="https://www.paypal.me/LarryAycock"><img src="https://raw.githubusercontent.com/stefan-niedermann/paypal-donate-button/master/paypal-donate-button.png" width=300px alt="Donate with PayPal"/></a></p>
 
 # Frequently Asked Questions
 
@@ -1093,3 +1110,4 @@ Audio Library voiced by Rachel Nelson (N5LSN/WRKF394 XYL)
 
 Skywarn® and the Skywarn® logo are registered trademarks of the National
 Oceanic and Atmospheric Administration, used with permission.
+
