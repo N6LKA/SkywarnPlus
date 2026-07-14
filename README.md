@@ -55,6 +55,7 @@
 - [Allmon3 Integration](#allmon3-integration)
   - [How It Works](#how-it-works)
   - [Allmon3 Configuration](#allmon3-configuration)
+    - [Weather Provider Options](#weather-provider-options)
 - [Manual Installation](#manual-installation)
 - [Testing](#testing)
 - [Debugging](#debugging)
@@ -918,7 +919,7 @@ SkywarnPlus can display active weather alerts and current conditions directly in
 A companion script, `Allmon3_Compat.py`, runs every minute as `root` via cron alongside the main SkywarnPlus process. Each run it:
 
 1. Reads the current alert state from `/tmp/SkywarnPlus/data.json`
-2. Optionally fetches current weather conditions from a public weather API (no API key required)
+2. Optionally fetches current weather conditions from wttr.in (free, no key) or from a Weather Underground Personal Weather Station for station-specific accuracy
 3. Writes `swp-data.json` to the Allmon3 web root — a compact JSON file containing active alerts and weather data
 4. Writes `swp-alerts.html` to the Allmon3 web root on the first run — a self-refreshing display page that fetches `swp-data.json` every 60 seconds
 
@@ -938,23 +939,31 @@ Enable the integration in the `Allmon3` section of `config.yaml` and configure o
 
 ```yaml
 Allmon3:
-  # Enable Allmon3 iframe integration
   Enable: true
-
-  # Path to the Allmon3 web root — change only if your installation differs
   WebRoot: /usr/share/allmon3
 
-  # Show current weather conditions above the SWP alerts
+  # Optional weather display above the alert list
   WeatherEnable: false
+  WeatherProvider: wttr              # wttr (default) or wunderground
+  WeatherLocation: "92320"           # ZIP, city, or ICAO — used by wttr; fallback for wunderground
+  WeatherLabel: "Calimesa, California"  # shown as "Weather conditions: <label>"
 
-  # Your location: ZIP code, city name, or ICAO airport code
-  # Examples:  92320   |   "Calimesa CA"   |   KFAT
-  WeatherLocation: ""
-
-  # Label displayed before the weather conditions
-  # Example:  "Calimesa, California - 92320"
-  WeatherLabel: ""
+  # Required only when WeatherProvider: wunderground
+  WundergroundAPIKey: ""
+  WundergroundStation: ""
 ```
+
+#### Weather Provider Options
+
+**`wttr`** (default) — Fetches conditions from [wttr.in](https://wttr.in). Free, no API key required. Returns temperature, humidity, wind speed and direction, and a short condition description. Wind gust is not available from this source.
+
+**`wunderground`** — Pulls live data from your Personal Weather Station (PWS) via the Weather Underground API. Ideal if you operate a PWS and want the panel to reflect your actual station's readings rather than a regional estimate. Returns temperature, humidity, wind speed and direction, and **wind gust**. A condition description (e.g. "Partly Cloudy") is not included in the PWS API response and will not appear on the panel.
+
+To use Wunderground:
+1. Get a free API key at [weatherunderground.com/member/api-keys](https://www.wunderground.com/member/api-keys) — free for PWS owners
+2. Find your station ID at [wunderground.com/dashboard/pws](https://www.wunderground.com/dashboard/pws)
+3. Set `WeatherProvider: wunderground`, `WundergroundAPIKey`, and `WundergroundStation` in `config.yaml`
+4. Optionally set `WeatherLocation` too — if Wunderground is unreachable, the panel automatically falls back to wttr.in using that location
 
 ### Step 2 — Add one line to `allmon3.ini`
 
@@ -1190,6 +1199,7 @@ Audio Library voiced by Rachel Nelson (N5LSN/WRKF394 XYL)
 
 Skywarn® and the Skywarn® logo are registered trademarks of the National
 Oceanic and Atmospheric Administration, used with permission.
+
 
 
 
