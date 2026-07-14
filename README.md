@@ -172,9 +172,7 @@ SkywarnPlus supports all 128 alert types included in the [NWS v1.2 API](https://
 > `develop` may contain incomplete, untested, or broken features at any given time. Only use this on a system where you can tolerate things not working correctly. Do not use it on a repeater you depend on for daily use.
 
 ```bash
-curl -fsSL "https://github.com/N6LKA/SkywarnPlus/archive/refs/heads/develop.tar.gz" \
-  | tar -xzO SkywarnPlus-develop/swp-install \
-  | sudo BRANCH=develop bash
+BRANCH=develop bash <(curl -fsSL "https://github.com/N6LKA/SkywarnPlus/archive/refs/heads/develop.tar.gz" | tar -xzO SkywarnPlus-develop/swp-install)
 ```
 
 > [!NOTE]
@@ -1192,5 +1190,6 @@ Audio Library voiced by Rachel Nelson (N5LSN/WRKF394 XYL)
 
 Skywarn® and the Skywarn® logo are registered trademarks of the National
 Oceanic and Atmospheric Administration, used with permission.
+
 
 
