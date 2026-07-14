@@ -919,7 +919,7 @@ SkywarnPlus can display active weather alerts and current conditions directly in
 A companion script, `Allmon3_Compat.py`, runs every minute as `root` via cron alongside the main SkywarnPlus process. Each run it:
 
 1. Reads the current alert state from `/tmp/SkywarnPlus/data.json`
-2. Optionally fetches current weather conditions from wttr.in (free, no key) or from a Weather Underground Personal Weather Station for station-specific accuracy
+2. Optionally fetches current weather conditions from wttr.in (free, no key), Weather Underground PWS, or your WeatherFlow Tempest station directly
 3. Writes `swp-data.json` to the Allmon3 web root — a compact JSON file containing active alerts and weather data
 4. Writes `swp-alerts.html` to the Allmon3 web root on the first run — a self-refreshing display page that fetches `swp-data.json` every 60 seconds
 
@@ -944,13 +944,17 @@ Allmon3:
 
   # Optional weather display above the alert list
   WeatherEnable: false
-  WeatherProvider: wttr              # wttr (default) or wunderground
-  WeatherLocation: "92320"           # ZIP, city, or ICAO — used by wttr; fallback for wunderground
+  WeatherProvider: wttr              # wttr (default), wunderground, or tempest
+  WeatherLocation: "92320"           # ZIP, city, or ICAO — used by wttr; fallback for wunderground/tempest
   WeatherLabel: "Calimesa, California"  # shown as "Weather conditions: <label>"
 
   # Required only when WeatherProvider: wunderground
   WundergroundAPIKey: ""
   WundergroundStation: ""
+
+  # Required only when WeatherProvider: tempest
+  TempestToken: ""
+  TempestStationID: ""              # leave blank to auto-detect
 ```
 
 #### Weather Provider Options
@@ -964,6 +968,14 @@ To use Wunderground:
 2. Find your station ID at [wunderground.com/dashboard/pws](https://www.wunderground.com/dashboard/pws)
 3. Set `WeatherProvider: wunderground`, `WundergroundAPIKey`, and `WundergroundStation` in `config.yaml`
 4. Optionally set `WeatherLocation` too — if Wunderground is unreachable, the panel automatically falls back to wttr.in using that location
+
+**`tempest`** — Pulls directly from your WeatherFlow Tempest station using the Tempest Better Forecast API. This is the most complete option: it returns temperature, humidity, wind speed and direction, **wind gust**, and a **conditions string** (e.g. "Clear", "Partly Cloudy", "Rain"). The conditions text is the same one displayed in the Tempest app.
+
+To use Tempest:
+1. Create a Personal Access Token at [tempest.earth/account](https://tempest.earth/account) under API Access
+2. Set `WeatherProvider: tempest` and `TempestToken` in `config.yaml`
+3. Leave `TempestStationID` blank to auto-detect your station, or find your station ID in the Tempest app under Station > Settings and set it explicitly
+4. Optionally set `WeatherLocation` too — if the Tempest API is unreachable, the panel automatically falls back to wttr.in using that location
 
 ### Step 2 — Add one line to `allmon3.ini`
 
@@ -1199,6 +1211,7 @@ Audio Library voiced by Rachel Nelson (N5LSN/WRKF394 XYL)
 
 Skywarn® and the Skywarn® logo are registered trademarks of the National
 Oceanic and Atmospheric Administration, used with permission.
+
 
 
 
