@@ -86,9 +86,7 @@ ALERTS_HTML = """\
       var h='';
       if(d.weather){
         var w=d.weather;
-        var title='Weather conditions';
-        if(d.weather_label) title+=': '+d.weather_label;
-        if(d.weather_location) title+=' - '+d.weather_location;
+        var title='Weather conditions'+(d.weather_label?': '+d.weather_label:'');
         h+='<div class="swp-wx">'+
            '<div class="swp-wx-title">'+title+'</div>'+
            '<div>Temperature: '+w.temp_f+'&deg;F, '+w.temp_c+'&deg;C'+
@@ -223,9 +221,8 @@ def main():
         "generated": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
     if weather:
-        payload["weather"]          = weather
-        payload["weather_label"]    = weather_label
-        payload["weather_location"] = weather_loc
+        payload["weather"]       = weather
+        payload["weather_label"] = weather_label
 
     json_path = os.path.join(web_root, "swp-data.json")
     with open(json_path, "w") as f:
