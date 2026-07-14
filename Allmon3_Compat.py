@@ -87,12 +87,15 @@ ALERTS_HTML = """\
       if(d.weather){
         var w=d.weather;
         var title='Weather conditions'+(d.weather_label?': '+d.weather_label:'');
+        var wind=w.wind_dir+' '+w.wind_mph+' mph';
+        if(w.wind_gust_mph) wind+=' (gust '+w.wind_gust_mph+' mph)';
+        var details='Temperature: '+w.temp_f+'&deg;F, '+w.temp_c+'&deg;C'+
+          ' &nbsp;|&nbsp; Humidity: '+w.humidity+'%'+
+          ' &nbsp;|&nbsp; Wind: '+wind;
+        if(w.condition) details+=' &nbsp;|&nbsp; '+w.condition;
         h+='<div class="swp-wx">'+
            '<div class="swp-wx-title">'+title+'</div>'+
-           '<div>Temperature: '+w.temp_f+'&deg;F, '+w.temp_c+'&deg;C'+
-           ' &nbsp;|&nbsp; Humidity: '+w.humidity+'%'+
-           ' &nbsp;|&nbsp; Wind: '+w.wind_dir+' '+w.wind_mph+' mph'+
-           ' &nbsp;|&nbsp; '+w.condition+'</div>'+
+           '<div>'+details+'</div>'+
            '</div>';
       }
       (d.alerts||[]).forEach(function(a){
@@ -150,8 +153,14 @@ def load_county_names():
     return county_data
 
 
-def get_weather(location):
-    if requests is None or not location:
+def degrees_to_cardinal(deg):
+    dirs = ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"]
+    return dirs[round(float(deg) / 22.5) % 16]
+
+
+def get_weather_wttr(location):
+    """Fetch weather from wttr.in (no API key required). Wind gust not available."""
+    if not location:
         return None
     try:
         resp = requests.get(
@@ -162,15 +171,49 @@ def get_weather(location):
             return None
         cc = resp.json()["current_condition"][0]
         return {
-            "temp_f":    cc.get("temp_F", "?"),
-            "temp_c":    cc.get("temp_C", "?"),
-            "humidity":  cc.get("humidity", "?"),
-            "wind_mph":  cc.get("windspeedMiles", "?"),
-            "wind_dir":  cc.get("winddir16Point", "?"),
-            "condition": cc["weatherDesc"][0]["value"] if cc.get("weatherDesc") else "?",
+            "temp_f":        cc.get("temp_F", "?"),
+            "temp_c":        cc.get("temp_C", "?"),
+            "humidity":      cc.get("humidity", "?"),
+            "wind_mph":      cc.get("windspeedMiles", "?"),
+            "wind_dir":      cc.get("winddir16Point", "?"),
+            "wind_gust_mph": None,
+            "condition":     cc["weatherDesc"][0]["value"] if cc.get("weatherDesc") else "",
         }
     except Exception as exc:
-        logging.warning("Weather fetch failed: %s", exc)
+        logging.warning("wttr.in fetch failed: %s", exc)
+        return None
+
+
+def get_weather_wunderground(api_key, station):
+    """Fetch weather from Weather Underground PWS API. Includes wind gust; no condition string."""
+    if not api_key or not station:
+        logging.warning("Wunderground requires both WundergroundAPIKey and WundergroundStation")
+        return None
+    try:
+        url = (
+            "https://api.weather.com/v2/pws/observations/current"
+            "?stationId={}&format=json&units=e&apiKey={}".format(station, api_key)
+        )
+        resp = requests.get(url, timeout=10)
+        if resp.status_code != 200:
+            logging.warning("Wunderground API returned HTTP %s", resp.status_code)
+            return None
+        obs = resp.json()["observations"][0]
+        imperial = obs["imperial"]
+        temp_f = imperial.get("temp", "?")
+        temp_c = round((float(temp_f) - 32) * 5 / 9, 1) if temp_f != "?" else "?"
+        gust = imperial.get("windGust")
+        return {
+            "temp_f":        str(temp_f),
+            "temp_c":        str(temp_c),
+            "humidity":      str(obs.get("humidity", "?")),
+            "wind_mph":      str(imperial.get("windSpeed", "?")),
+            "wind_dir":      degrees_to_cardinal(imperial.get("winddir", 0)),
+            "wind_gust_mph": str(gust) if gust is not None else None,
+            "condition":     "",
+        }
+    except Exception as exc:
+        logging.warning("Wunderground fetch failed: %s", exc)
         return None
 
 
@@ -189,10 +232,13 @@ def main():
     if not cfg.get("Enable", False):
         return
 
-    web_root      = cfg.get("WebRoot", "/usr/share/allmon3")
-    weather_on    = cfg.get("WeatherEnable", False)
-    weather_loc   = cfg.get("WeatherLocation", "")
-    weather_label = cfg.get("WeatherLabel", "")
+    web_root         = cfg.get("WebRoot", "/usr/share/allmon3")
+    weather_on       = cfg.get("WeatherEnable", False)
+    weather_loc      = cfg.get("WeatherLocation", "")
+    weather_label    = cfg.get("WeatherLabel", "")
+    weather_provider = cfg.get("WeatherProvider", "wttr").lower()
+    wu_api_key       = cfg.get("WundergroundAPIKey", "")
+    wu_station       = cfg.get("WundergroundStation", "")
 
     state       = load_state()
     county_data = load_county_names()
@@ -212,7 +258,17 @@ def main():
             "end_time": end_time,
         })
 
-    weather = get_weather(weather_loc) if weather_on else None
+    weather = None
+    if weather_on:
+        if requests is None:
+            logging.error("requests library not available")
+        elif weather_provider == "wunderground":
+            weather = get_weather_wunderground(wu_api_key, wu_station)
+            if weather is None:
+                logging.warning("Wunderground failed, falling back to wttr.in")
+                weather = get_weather_wttr(weather_loc)
+        else:
+            weather = get_weather_wttr(weather_loc)
 
     os.makedirs(web_root, exist_ok=True)
 
