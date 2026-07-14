@@ -16,6 +16,9 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
 # You should have received a copy of the GNU General Public License along with SkywarnPlus. If not, see <https://www.gnu.org/licenses/>.
 
+# Branch to install from (override with: BRANCH=develop bash)
+BRANCH="${BRANCH:-main}"
+
 clear
 
 print_divider() {
@@ -170,9 +173,9 @@ Please choose an option (Y/n): " INSTALL_OPTION
 download_swp() {
     print_divider
     echo "Downloading SkywarnPlus..."
-    wget -q -O /usr/local/bin/SkywarnPlus.zip https://github.com/N6LKA/SkywarnPlus/archive/refs/heads/main.zip
+    wget -q -O /usr/local/bin/SkywarnPlus.zip "https://github.com/N6LKA/SkywarnPlus/archive/refs/heads/${BRANCH}.zip"
     unzip /usr/local/bin/SkywarnPlus.zip -d /usr/local/bin
-    mv /usr/local/bin/SkywarnPlus-main /usr/local/bin/SkywarnPlus
+    mv "/usr/local/bin/SkywarnPlus-${BRANCH}" /usr/local/bin/SkywarnPlus
     rm /usr/local/bin/SkywarnPlus.zip
 }
 
@@ -338,3 +341,4 @@ main() {
 }
 
 main
+
