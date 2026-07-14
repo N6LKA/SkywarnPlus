@@ -310,6 +310,44 @@ setup_crontab() {
         else
             echo "Supermon crontab entry not created."
         fi
+
+        print_divider
+        echo "SkywarnPlus can also display active alerts (and optionally current weather) in an Allmon3 iframe panel."
+        echo "This requires a cron entry for Allmon3_Compat.py to run as root."
+        echo
+
+        if [ -d "/usr/share/allmon3" ]; then
+            echo "It looks like you have Allmon3 installed, so it is recommended to create this crontab entry."
+        else
+            echo "It looks like you do not have Allmon3 installed, but you can still safely create this crontab entry in case you install it later."
+        fi
+
+        read -r -p "Would you like to create the crontab entry for Allmon3_Compat.py now? (Y/n): " CREATE_ALLMON3_CRON
+        CREATE_ALLMON3_CRON=${CREATE_ALLMON3_CRON:-y}
+
+        if [[ "$CREATE_ALLMON3_CRON" =~ ^[Yy]$ ]]; then
+            ALLMON3_CRON_FILE="/etc/cron.d/Allmon3_Compat"
+            ALLMON3_CRONTAB_ENTRY="* * * * * root /usr/local/bin/SkywarnPlus/Allmon3_Compat.py"
+
+            if grep -Fxq "$ALLMON3_CRONTAB_ENTRY" "$ALLMON3_CRON_FILE" 2>/dev/null; then
+                echo "Allmon3 cron entry already exists. Skipping."
+            else
+                echo "$ALLMON3_CRONTAB_ENTRY" > "$ALLMON3_CRON_FILE" || {
+                    print_divider
+                    echo "Failed to create Allmon3 cron entry. Exiting."
+                    print_divider
+                    exit 1
+                }
+                echo "Allmon3 cron entry created successfully."
+                print_divider
+                echo "IMPORTANT: To activate Allmon3 integration, you must:"
+                echo "  1. Set Allmon3.Enable: true in config.yaml"
+                echo "  2. Add 'iframepre = swp-alerts.html' to the desired"
+                echo "     node stanza in /etc/allmon3/allmon3.ini"
+            fi
+        else
+            echo "Allmon3 cron entry not created."
+        fi
     fi
 }
 
