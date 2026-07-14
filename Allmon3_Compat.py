@@ -217,6 +217,59 @@ def get_weather_wunderground(api_key, station):
         return None
 
 
+def get_weather_tempest(token, station_id):
+    """Fetch weather from WeatherFlow Tempest Better Forecast API.
+    Includes wind gust and a conditions string (e.g. 'Partly Cloudy').
+    If station_id is blank, auto-detects the first station on the account."""
+    if not token:
+        logging.warning("Tempest requires TempestToken")
+        return None
+    try:
+        if not station_id:
+            resp = requests.get(
+                "https://swd.weatherflow.com/swd/rest/stations?token={}".format(token),
+                timeout=10,
+            )
+            if resp.status_code != 200:
+                logging.warning("Tempest stations API returned HTTP %s", resp.status_code)
+                return None
+            stations = resp.json().get("stations", [])
+            if not stations:
+                logging.warning("Tempest: no stations found for this token")
+                return None
+            station_id = stations[0]["station_id"]
+            logging.info("Tempest: auto-detected station ID %s", station_id)
+
+        resp = requests.get(
+            "https://swd.weatherflow.com/swd/rest/better_forecast"
+            "?station_id={}&token={}".format(station_id, token),
+            timeout=10,
+        )
+        if resp.status_code != 200:
+            logging.warning("Tempest forecast API returned HTTP %s", resp.status_code)
+            return None
+        cc = resp.json().get("current_conditions", {})
+        temp_c = cc.get("air_temperature", "?")
+        temp_f = round(float(temp_c) * 9 / 5 + 32, 1) if temp_c != "?" else "?"
+        wind_ms = cc.get("wind_avg", 0)
+        wind_mph = round(float(wind_ms) * 2.23694, 1) if wind_ms is not None else "?"
+        gust_ms = cc.get("wind_gust")
+        gust_mph = round(float(gust_ms) * 2.23694, 1) if gust_ms is not None else None
+        wind_card = cc.get("wind_direction_cardinal") or degrees_to_cardinal(cc.get("wind_direction", 0))
+        return {
+            "temp_f":        str(temp_f),
+            "temp_c":        str(temp_c),
+            "humidity":      str(cc.get("relative_humidity", "?")),
+            "wind_mph":      str(wind_mph),
+            "wind_dir":      wind_card,
+            "wind_gust_mph": str(gust_mph) if gust_mph is not None else None,
+            "condition":     cc.get("conditions", ""),
+        }
+    except Exception as exc:
+        logging.warning("Tempest fetch failed: %s", exc)
+        return None
+
+
 def main():
     if os.geteuid() != 0:
         logging.error("Must run as root")
@@ -239,6 +292,8 @@ def main():
     weather_provider = cfg.get("WeatherProvider", "wttr").lower()
     wu_api_key       = cfg.get("WundergroundAPIKey", "")
     wu_station       = cfg.get("WundergroundStation", "")
+    tempest_token    = cfg.get("TempestToken", "")
+    tempest_station  = cfg.get("TempestStationID", "")
 
     state       = load_state()
     county_data = load_county_names()
@@ -267,6 +322,11 @@ def main():
             if weather is None:
                 logging.warning("Wunderground failed, falling back to wttr.in")
                 weather = get_weather_wttr(weather_loc)
+        elif weather_provider == "tempest":
+            weather = get_weather_tempest(tempest_token, tempest_station)
+            if weather is None:
+                logging.warning("Tempest failed, falling back to wttr.in")
+                weather = get_weather_wttr(weather_loc)
         else:
             weather = get_weather_wttr(weather_loc)
 
@@ -293,3 +353,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
