@@ -458,6 +458,9 @@ Allmon3:
   #   wunderground - Pulls from a specific Personal Weather Station via the Weather
   #                  Underground API. More accurate for your exact location. Requires
   #                  WundergroundAPIKey and WundergroundStation below.
+  #   tempest     - Pulls directly from your WeatherFlow Tempest station via the
+  #                 Tempest Better Forecast API. Includes wind gust and a conditions
+  #                 string (e.g. "Partly Cloudy"). Requires TempestToken below.
   WeatherProvider: wttr
 
   # Weather Underground API key. Required when WeatherProvider is wunderground.
@@ -467,6 +470,14 @@ Allmon3:
   # Your Personal Weather Station ID on Weather Underground (e.g. your-station-id).
   # Find your station ID at wunderground.com/dashboard/pws
   WundergroundStation: ""
+
+  # WeatherFlow Tempest Personal Access Token. Required when WeatherProvider is tempest.
+  # Create one at: tempest.earth/account (under API Access)
+  TempestToken: ""
+
+  # Your Tempest station ID. Leave blank to auto-detect the first station on your account.
+  # Find your station ID in the Tempest app under Station > Settings, or at tempest.earth.
+  TempestStationID: ""
 
 ################################################################################################################################
 
@@ -509,4 +520,5 @@ DEV:
   - Title: "Tornado Warning"
   - Title: "Tornado Watch"
   - Title: "Severe Thunderstorm Warning"
+
 
