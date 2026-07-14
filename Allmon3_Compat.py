@@ -38,6 +38,8 @@ try:
 except ImportError:
     YAML = None
 
+SEVERITY_NAMES = {4: "Extreme", 3: "Severe", 2: "Moderate", 1: "Minor", 0: "Unknown"}
+
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 CONFIG_FILE = os.path.join(BASE_DIR, "config.yaml")
 COUNTY_CODES_PATH = os.path.join(BASE_DIR, "CountyCodes.md")
@@ -192,7 +194,8 @@ def main():
         counties = sorted(
             set(county_data.get(e["county_code"], e["county_code"]) for e in entries)
         )
-        severity = entries[0].get("severity", "Unknown") if entries else "Unknown"
+        severity_raw = entries[0].get("severity", 0) if entries else 0
+        severity = SEVERITY_NAMES.get(severity_raw, "Unknown") if isinstance(severity_raw, int) else str(severity_raw)
         end_time = entries[0].get("end_time_utc", "") if entries else ""
         alerts.append({
             "title":    title,
@@ -207,7 +210,7 @@ def main():
 
     payload = {
         "alerts":    alerts,
-        "generated": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "generated": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
     if weather:
         payload["weather"]       = weather
