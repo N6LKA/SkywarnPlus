@@ -52,6 +52,9 @@
   - [Supermon 2](#supermon-2)
     - [ast\_var\_update.sh](#ast_var_updatesh)
     - [SkywarnPlus Integration with Supermon 2 Upgraded](#skywarnplus-integration-with-supermon-2-upgraded)
+- [Allmon3 Integration](#allmon3-integration)
+  - [How It Works](#how-it-works)
+  - [Allmon3 Configuration](#allmon3-configuration)
 - [Manual Installation](#manual-installation)
 - [Testing](#testing)
 - [Debugging](#debugging)
@@ -905,6 +908,85 @@ fi
 ### SkywarnPlus Integration with Supermon 2 Upgraded
 Beginning with SkywarnPlus release [v0.8.0](https://github.com/N6LKA/SkywarnPlus/releases/tag/v0.8.0) (7/21/24), a function was added to emulate the functionality of `ast_var_update.sh` in an enhanced way. This allows proper display of alert information from SkywarnPlus in Supermon 2, without broken hyperlinks.
 
+# Allmon3 Integration
+
+SkywarnPlus can display active weather alerts and current conditions directly inside [Allmon3](https://github.com/AllStarLink/Allmon3) using its built-in iframe support. When enabled, a panel appears above or below the node status card showing the current weather and any active NWS alerts. The panel automatically collapses to zero height when there are no active alerts, so it takes up no space during quiet periods.
+
+> [!NOTE]
+> The Allmon3 integration requires Allmon3 to be installed on the same system as SkywarnPlus. If Allmon3 is not detected during installation, this feature will be skipped.
+
+## How It Works
+
+A companion script, `Allmon3_Compat.py`, runs every minute as `root` via cron alongside the main SkywarnPlus process. Each run it:
+
+1. Reads the current alert state from `/tmp/SkywarnPlus/data.json`
+2. Optionally fetches current weather conditions from a public weather API (no API key required)
+3. Writes `swp-data.json` to the Allmon3 web root — a compact JSON file containing active alerts and weather data
+4. Writes `swp-alerts.html` to the Allmon3 web root on the first run — a self-refreshing display page that fetches `swp-data.json` every 60 seconds
+
+Allmon3 loads `swp-alerts.html` into an iframe for each node you configure. Because Allmon3's iframe implementation auto-sizes to the page content, the iframe collapses to zero when there are no alerts or weather to show.
+
+> [!IMPORTANT]
+> ## Important Note About ASL3
+> The `Allmon3_Compat.py` script must run as `root` because it writes to `/usr/share/allmon3/`, which is not writable by the `asterisk` user. This is the same pattern used by `ASL3_Supermon_Workaround.py`. The installer creates a separate cron entry under `root` for this script.
+
+## Allmon3 Configuration
+
+After running the installer, two steps are required to complete the setup.
+
+### Step 1 — Edit `config.yaml`
+
+Enable the integration in the `Allmon3` section of `config.yaml` and configure optional weather display:
+
+```yaml
+Allmon3:
+  # Enable Allmon3 iframe integration
+  Enable: true
+
+  # Path to the Allmon3 web root — change only if your installation differs
+  WebRoot: /usr/share/allmon3
+
+  # Show current weather conditions above the SWP alerts
+  WeatherEnable: false
+
+  # Your location: ZIP code, city name, or ICAO airport code
+  # Examples:  92320   |   "Calimesa CA"   |   KFAT
+  WeatherLocation: ""
+
+  # Label displayed before the weather conditions
+  # Example:  "Calimesa, California - 92320"
+  WeatherLabel: ""
+```
+
+### Step 2 — Add one line to `allmon3.ini`
+
+The installer **does not** automatically modify `allmon3.ini`. It cannot know which node stanza you want the display to appear on — particularly if your `allmon3.ini` contains multiple nodes (for example, a local repeater node and a hub node). You must add the line manually.
+
+Open `/etc/allmon3/allmon3.ini`:
+
+```bash
+sudo nano /etc/allmon3/allmon3.ini
+```
+
+Locate the stanza for the node where SkywarnPlus is running and add `iframepre` or `iframepost`:
+
+```ini
+[501260]
+host = 127.0.0.1
+user = admin
+pass = password
+iframepre = swp-alerts.html
+```
+
+**`iframepre`** places the panel **above** the transmit status line. This is the recommended placement — weather alerts are high-priority information and should be seen immediately when you open the page.
+
+**`iframepost`** places the panel **below** the connection table, if you prefer a less prominent placement.
+
+Only add `iframepre` or `iframepost` to the stanza(s) where you want the display to appear. If another node in your `allmon3.ini` belongs to a different repeater at a different location, do not add it there — the alert and weather data reflects the counties and location configured in SkywarnPlus, not the remote node's location.
+
+After saving the file, **reload the Allmon3 page in your browser** — no Allmon3 service restart is needed for this change to take effect.
+
+
 # Manual Installation
 SkywarnPlus is recommended to be installed at the `/usr/local/bin/SkywarnPlus` location on both Debian and Arch systems.
 
@@ -1110,4 +1192,5 @@ Audio Library voiced by Rachel Nelson (N5LSN/WRKF394 XYL)
 
 Skywarn® and the Skywarn® logo are registered trademarks of the National
 Oceanic and Atmospheric Administration, used with permission.
+
 
