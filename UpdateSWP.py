@@ -147,8 +147,11 @@ def display_update_warning():
 if os.geteuid() != 0:
     exit("ERROR: This script must be run as root.")
 
+# Determine the directory this script lives in (works regardless of CWD)
+script_dir = os.path.dirname(os.path.realpath(__file__))
+
 # Make sure the script is in the right directory
-if not os.path.isfile("SkywarnPlus.py"):
+if not os.path.isfile(os.path.join(script_dir, "SkywarnPlus.py")):
     print(
         "ERROR: Cannot find SkywarnPlus.py. Make sure this script is in the SkywarnPlus directory."
     )
@@ -163,9 +166,13 @@ if not args.force:
         log("Update cancelled by user.")
         exit()
 
-# Zip the current directory
-root_dir = os.getcwd()
+# Branch to update from (inherit BRANCH env var set by swp-install, default to main)
+branch = os.environ.get("BRANCH", "main")
+
+# Root dir is the SkywarnPlus install directory
+root_dir = script_dir
 log("Current directory is {}".format(root_dir))
+log("Updating from branch: {}".format(branch))
 
 # Full path to the archive
 zip_name = root_dir + "_backup_" + datetime.datetime.now().strftime("%Y%m%d_%H%M")
@@ -175,34 +182,33 @@ log("Creating backup at {}.zip...".format(zip_name))
 shutil.make_archive(zip_name, "zip", root_dir)
 
 # Download the new zip from GitHub
-url = (
-    "https://github.com/N6LKA/SkywarnPlus/archive/refs/heads/main.zip"
-)
+url = "https://github.com/N6LKA/SkywarnPlus/archive/refs/heads/{}.zip".format(branch)
 log("Downloading SkywarnPlus from {}...".format(url))
 response = requests.get(url)
 
 with open("/tmp/SkywarnPlus.zip", "wb") as out_file:
     out_file.write(response.content)
 
-# Delete /tmp/SkywarnPlus and /tmp/SkywarnPlus-main if they already exist
+# Delete /tmp/SkywarnPlus and branch-named extract dir if they already exist
 if os.path.isdir("/tmp/SkywarnPlus"):
     log("Removing old /tmp/SkywarnPlus directory...")
     shutil.rmtree("/tmp/SkywarnPlus")
-if os.path.isdir("/tmp/SkywarnPlus-main"):
-    log("Removing old /tmp/SkywarnPlus-main directory...")
-    shutil.rmtree("/tmp/SkywarnPlus-main")
+branch_dir = "/tmp/SkywarnPlus-{}".format(branch)
+if os.path.isdir(branch_dir):
+    log("Removing old {} directory...".format(branch_dir))
+    shutil.rmtree(branch_dir)
 
 # Unzip the downloaded file
 log("Extracting SkywarnPlus.zip...")
 with zipfile.ZipFile("/tmp/SkywarnPlus.zip", "r") as zip_ref:
     zip_ref.extractall("/tmp")
 
-# GitHub archive extracts as SkywarnPlus-main, rename to SkywarnPlus
-os.rename("/tmp/SkywarnPlus-main", "/tmp/SkywarnPlus")
+# GitHub archive extracts as SkywarnPlus-{branch}, rename to SkywarnPlus
+os.rename(branch_dir, "/tmp/SkywarnPlus")
 
 # Merge the old config with the new config
 log("Merging old config with new config...")
-merge_yaml_files("config.yaml", "/tmp/SkywarnPlus/config.yaml")
+merge_yaml_files(os.path.join(root_dir, "config.yaml"), "/tmp/SkywarnPlus/config.yaml")
 
 # Remove duplicate comments from config.yaml
 remove_duplicate_comments("/tmp/SkywarnPlus/config.yaml")
@@ -236,3 +242,4 @@ if os.path.isdir("/tmp/SkywarnPlus"):
     shutil.rmtree("/tmp/SkywarnPlus")
 
 log("Update complete!")
+

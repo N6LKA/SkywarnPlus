@@ -429,6 +429,58 @@ Logging:
 
 ################################################################################################################################
 
+Allmon3:
+  # Enable Allmon3 integration. When enabled, Allmon3_Compat.py (running as root via cron)
+  # writes swp-data.json and swp-alerts.html to the Allmon3 web root every minute.
+  # Add 'iframepre = swp-alerts.html' to the desired node stanza in /etc/allmon3/allmon3.ini
+  # to display the panel above that node's connection list in Allmon3.
+  Enable: false
+
+  # Path to the Allmon3 web root directory.
+  WebRoot: /usr/share/allmon3
+
+  # Enable current weather conditions display above the alert list.
+  # See WeatherProvider below to choose between wttr.in (free, no key) or
+  # Weather Underground PWS (requires API key and station ID).
+  WeatherEnable: false
+
+  # Location for weather lookup. Accepts ZIP code, city name, or ICAO airport code.
+  # Examples:  92376   or   Rialto, CA   or   KONT
+  # Used by the wttr provider, and by wunderground as a fallback if no station is set.
+  WeatherLocation: ""
+
+  # Label shown before the weather line (e.g. your city name or callsign area).
+  # Leave blank to show weather with no label.
+  WeatherLabel: ""
+
+  # Weather data provider.
+  #   wttr        - Free, no API key required. Uses wttr.in. Wind gust not available.
+  #   wunderground - Pulls from a specific Personal Weather Station via the Weather
+  #                  Underground API. More accurate for your exact location. Requires
+  #                  WundergroundAPIKey and WundergroundStation below.
+  #   tempest     - Pulls directly from your WeatherFlow Tempest station via the
+  #                 Tempest Better Forecast API. Includes wind gust and a conditions
+  #                 string (e.g. "Partly Cloudy"). Requires TempestToken below.
+  WeatherProvider: wttr
+
+  # Weather Underground API key. Required when WeatherProvider is wunderground.
+  # Free for PWS owners — get yours at: weatherunderground.com/member/api-keys
+  WundergroundAPIKey: ""
+
+  # Your Personal Weather Station ID on Weather Underground (e.g. your-station-id).
+  # Find your station ID at wunderground.com/dashboard/pws
+  WundergroundStation: ""
+
+  # WeatherFlow Tempest Personal Access Token. Required when WeatherProvider is tempest.
+  # Create one at: tempest.earth/account (under API Access)
+  TempestToken: ""
+
+  # Your Tempest station ID. Leave blank to auto-detect the first station on your account.
+  # Find your station ID in the Tempest app under Station > Settings, or at tempest.earth.
+  TempestStationID: ""
+
+################################################################################################################################
+
 DEV:
   # Configuration for development and testing.
 
@@ -468,3 +520,5 @@ DEV:
   - Title: "Tornado Warning"
   - Title: "Tornado Watch"
   - Title: "Severe Thunderstorm Warning"
+
+

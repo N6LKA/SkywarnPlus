@@ -48,10 +48,14 @@
     - [Manual Setup](#manual-setup)
 - [Supermon Integration](#supermon-integration)
   - [AutoSkywarn vs. AUTOSKY](#autoskywarn-vs-autosky)
-  - [Supermon 6.1 - 7.4](#supermon-61---74)
+  - [Supermon 6 - 8+](#supermon-6---8)
   - [Supermon 2](#supermon-2)
     - [ast\_var\_update.sh](#ast_var_updatesh)
     - [SkywarnPlus Integration with Supermon 2 Upgraded](#skywarnplus-integration-with-supermon-2-upgraded)
+- [Allmon3 Integration](#allmon3-integration)
+  - [How It Works](#how-it-works)
+  - [Allmon3 Configuration](#allmon3-configuration)
+    - [Weather Provider Options](#weather-provider-options)
 - [Manual Installation](#manual-installation)
 - [Testing](#testing)
 - [Debugging](#debugging)
@@ -154,11 +158,26 @@ SkywarnPlus supports all 128 alert types included in the [NWS v1.2 API](https://
 # Installation
 
 ## Automated Installation
+
+**Stable (recommended):** installs from `main` — the current release.
+
 1. Access the terminal of your node and execute the following command as `root`:
    ```bash
    bash -c "$(curl -fsSL https://raw.githubusercontent.com/N6LKA/SkywarnPlus/main/swp-install)"
    ```
 2. Continue with [Configuration](#configuration).
+
+**Development (testing only):** installs from `develop` — features currently in progress ahead of the next release.
+
+> [!WARNING]
+> `develop` may contain incomplete, untested, or broken features at any given time. Only use this on a system where you can tolerate things not working correctly. Do not use it on a repeater you depend on for daily use.
+
+```bash
+BRANCH=develop bash <(curl -fsSL "https://github.com/N6LKA/SkywarnPlus/archive/refs/heads/develop.tar.gz" | tar -xzO SkywarnPlus-develop/swp-install)
+```
+
+> [!NOTE]
+> The tarball form is used instead of a raw GitHub URL because `raw.githubusercontent.com` is CDN-cached and can serve a stale `swp-install` for an extended period. The tarball goes through GitHub's codeload service, which always returns the current commit.
 
 > [!NOTE]
 > To install manually, see [Manual Installation](#manual-installation).
@@ -769,8 +788,8 @@ All of the integration functionality implemented by SkywarnPlus described below 
 ## AutoSkywarn vs. AUTOSKY
 The original AutoSkywarn (KF5VH) was forked and modified to create the very similar AUTOSKY (HamVoIP). For the purposes of this document, they are considered the same.
 
-## Supermon 6.1 - 7.4
-In Supermon versions 6.1 - 7.4, the following code segment was added to `link.php` to ingest plaintext alert titles from a file created by AUTOSKY:
+## Supermon 6 - 8+
+In Supermon versions 6 - 8+, the following code segment was added to `link.php` to ingest plaintext alert titles from a file created by AUTOSKY:
 
 ```php
 // ADDED WA3DSP Autosky warning messages
@@ -784,7 +803,7 @@ if (file_exists("/tmp/AUTOSKY/warnings.txt")) {
 // END WA3DSP
 ```
 
-This code segment in Supermon versions 6.1 - 7.4 simply adds the entire contents of the `/tmp/AUTOSKY/warnings.txt` text file to the webpage, colors them red, and makes them bold. The contents of `/tmp/AUTOSKY/warnings.txt` would look like this:
+This code segment in Supermon versions 6 - 8+ simply adds the entire contents of the `/tmp/AUTOSKY/warnings.txt` text file to the webpage, colors them red, and makes them bold. The contents of `/tmp/AUTOSKY/warnings.txt` would look like this:
 
 ```
 Tornado Warning
@@ -792,7 +811,7 @@ Severe Thunderstorm Warning
 Tornado Watch
 ```
 
-A workaround called `SupermonCompat` was added to SkywarnPlus so that the alert titles would still be displayed in Supermon. This feature simply adds alert titles to `/tmp/AUTOSKY/warnings.txt` so that Supermon versions 6.1 - 7.4 can display them.
+A workaround called `SupermonCompat` was added to SkywarnPlus so that the alert titles would still be displayed in Supermon. This feature simply adds alert titles to `/tmp/AUTOSKY/warnings.txt` so that Supermon versions 6 - 8+ can display them.
 
 ## Supermon 2
 
@@ -887,6 +906,105 @@ fi
 
 ### SkywarnPlus Integration with Supermon 2 Upgraded
 Beginning with SkywarnPlus release [v0.8.0](https://github.com/N6LKA/SkywarnPlus/releases/tag/v0.8.0) (7/21/24), a function was added to emulate the functionality of `ast_var_update.sh` in an enhanced way. This allows proper display of alert information from SkywarnPlus in Supermon 2, without broken hyperlinks.
+
+# Allmon3 Integration
+
+SkywarnPlus can display active weather alerts and current conditions directly inside [Allmon3](https://github.com/AllStarLink/Allmon3) using its built-in iframe support. When enabled, a panel appears above or below the node status card showing the current weather and any active NWS alerts. The panel automatically collapses to zero height when there are no active alerts, so it takes up no space during quiet periods.
+
+> [!NOTE]
+> The Allmon3 integration requires Allmon3 to be installed on the same system as SkywarnPlus. If Allmon3 is not detected during installation, this feature will be skipped.
+
+## How It Works
+
+A companion script, `Allmon3_Compat.py`, runs every minute as `root` via cron alongside the main SkywarnPlus process. Each run it:
+
+1. Reads the current alert state from `/tmp/SkywarnPlus/data.json`
+2. Optionally fetches current weather conditions from wttr.in (free, no key), Weather Underground PWS, or your WeatherFlow Tempest station directly
+3. Writes `swp-data.json` to the Allmon3 web root — a compact JSON file containing active alerts and weather data
+4. Writes `swp-alerts.html` to the Allmon3 web root on the first run — a self-refreshing display page that fetches `swp-data.json` every 60 seconds
+
+Allmon3 loads `swp-alerts.html` into an iframe for each node you configure. Because Allmon3's iframe implementation auto-sizes to the page content, the iframe collapses to zero when there are no alerts or weather to show.
+
+> [!IMPORTANT]
+> ## Important Note About ASL3
+> The `Allmon3_Compat.py` script must run as `root` because it writes to `/usr/share/allmon3/`, which is not writable by the `asterisk` user. This is the same pattern used by `ASL3_Supermon_Workaround.py`. The installer creates a separate cron entry under `root` for this script.
+
+## Allmon3 Configuration
+
+After running the installer, two steps are required to complete the setup.
+
+### Step 1 — Edit `config.yaml`
+
+Enable the integration in the `Allmon3` section of `config.yaml` and configure optional weather display:
+
+```yaml
+Allmon3:
+  Enable: true
+  WebRoot: /usr/share/allmon3
+
+  # Optional weather display above the alert list
+  WeatherEnable: false
+  WeatherProvider: wttr              # wttr (default), wunderground, or tempest
+  WeatherLocation: "92320"           # ZIP, city, or ICAO — used by wttr; fallback for wunderground/tempest
+  WeatherLabel: "Calimesa, California"  # shown as "Weather conditions: <label>"
+
+  # Required only when WeatherProvider: wunderground
+  WundergroundAPIKey: ""
+  WundergroundStation: ""
+
+  # Required only when WeatherProvider: tempest
+  TempestToken: ""
+  TempestStationID: ""              # leave blank to auto-detect
+```
+
+#### Weather Provider Options
+
+**`wttr`** (default) — Fetches conditions from [wttr.in](https://wttr.in). Free, no API key required. Returns temperature, humidity, wind speed and direction, and a short condition description. Wind gust is not available from this source.
+
+**`wunderground`** — Pulls live data from your Personal Weather Station (PWS) via the Weather Underground API. Ideal if you operate a PWS and want the panel to reflect your actual station's readings rather than a regional estimate. Returns temperature, humidity, wind speed and direction, and **wind gust**. A condition description (e.g. "Partly Cloudy") is not included in the PWS API response and will not appear on the panel.
+
+To use Wunderground:
+1. Get a free API key at [weatherunderground.com/member/api-keys](https://www.wunderground.com/member/api-keys) — free for PWS owners
+2. Find your station ID at [wunderground.com/dashboard/pws](https://www.wunderground.com/dashboard/pws)
+3. Set `WeatherProvider: wunderground`, `WundergroundAPIKey`, and `WundergroundStation` in `config.yaml`
+4. Optionally set `WeatherLocation` too — if Wunderground is unreachable, the panel automatically falls back to wttr.in using that location
+
+**`tempest`** — Pulls directly from your WeatherFlow Tempest station using the Tempest Better Forecast API. This is the most complete option: it returns temperature, humidity, wind speed and direction, **wind gust**, and a **conditions string** (e.g. "Clear", "Partly Cloudy", "Rain"). The conditions text is the same one displayed in the Tempest app.
+
+To use Tempest:
+1. Create a Personal Access Token at [tempest.earth/account](https://tempest.earth/account) under API Access
+2. Set `WeatherProvider: tempest` and `TempestToken` in `config.yaml`
+3. Leave `TempestStationID` blank to auto-detect your station, or find your station ID in the Tempest app under Station > Settings and set it explicitly
+4. Optionally set `WeatherLocation` too — if the Tempest API is unreachable, the panel automatically falls back to wttr.in using that location
+
+### Step 2 — Add one line to `allmon3.ini`
+
+The installer **does not** automatically modify `allmon3.ini`. It cannot know which node stanza you want the display to appear on — particularly if your `allmon3.ini` contains multiple nodes (for example, a local repeater node and a hub node). You must add the line manually.
+
+Open `/etc/allmon3/allmon3.ini`:
+
+```bash
+sudo nano /etc/allmon3/allmon3.ini
+```
+
+Locate the stanza for the node where SkywarnPlus is running and add `iframepre` or `iframepost`:
+
+```ini
+[501260]
+host = 127.0.0.1
+user = admin
+pass = password
+iframepre = swp-alerts.html
+```
+
+**`iframepre`** places the panel **above** the transmit status line. This is the recommended placement — weather alerts are high-priority information and should be seen immediately when you open the page.
+
+**`iframepost`** places the panel **below** the connection table, if you prefer a less prominent placement.
+
+Only add `iframepre` or `iframepost` to the stanza(s) where you want the display to appear. If another node in your `allmon3.ini` belongs to a different repeater at a different location, do not add it there — the alert and weather data reflects the counties and location configured in SkywarnPlus, not the remote node's location.
+
+After saving the file, **reload the Allmon3 page in your browser** — no Allmon3 service restart is needed for this change to take effect.
+
 
 # Manual Installation
 SkywarnPlus is recommended to be installed at the `/usr/local/bin/SkywarnPlus` location on both Debian and Arch systems.
@@ -1047,9 +1165,9 @@ Thank you for your understanding and assistance in making SkywarnPlus a more rob
 
 SkywarnPlus is open-source and welcomes contributions. If you'd like to contribute, please fork the repository and use a feature branch. Pull requests are warmly welcome.
 
-If the spare time I put into the development of SkywarnPlus has helped you, please consider supporting!
+If the work put into maintaining and improving SkywarnPlus has helped you, please consider supporting!
 
-<p align="center"><a href="https://www.paypal.com/donate/?business=93AJFB9BAVSJL&no_recurring=0&item_name=Thank+you+so+much+for+your+support%21+I+put+a+lot+of+my+spare+time+into+this%2C+and+I+sincerely+appreciate+YOU%21&currency_code=USD"><img src="https://raw.githubusercontent.com/stefan-niedermann/paypal-donate-button/master/paypal-donate-button.png" width=300px alt="Donate with PayPal"/></a></p>
+<p align="center"><a href="https://www.paypal.me/LarryAycock"><img src="https://raw.githubusercontent.com/stefan-niedermann/paypal-donate-button/master/paypal-donate-button.png" width=300px alt="Donate with PayPal"/></a></p>
 
 # Frequently Asked Questions
 
@@ -1093,3 +1211,8 @@ Audio Library voiced by Rachel Nelson (N5LSN/WRKF394 XYL)
 
 Skywarn® and the Skywarn® logo are registered trademarks of the National
 Oceanic and Atmospheric Administration, used with permission.
+
+
+
+
+
