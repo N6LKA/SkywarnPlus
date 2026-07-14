@@ -463,7 +463,7 @@ Allmon3:
   # Free for PWS owners — get yours at: weatherunderground.com/member/api-keys
   WundergroundAPIKey: ""
 
-  # Your Personal Weather Station ID on Weather Underground (e.g. KCACALIM39).
+  # Your Personal Weather Station ID on Weather Underground (e.g. your-station-id).
   # Find your station ID at wunderground.com/dashboard/pws
   WundergroundStation: ""
 
