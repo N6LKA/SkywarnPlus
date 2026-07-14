@@ -57,9 +57,9 @@ ALERTS_HTML = """\
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <link rel="stylesheet" href="css/bootstrap.min.css">
-  <link rel="stylesheet" href="css/main.css">
   <style>
-    body{margin:0;padding:4px 8px;background:transparent;font-size:.85rem}
+    html,body{margin:0;padding:0;height:auto!important;min-height:0!important;background:transparent;font-size:.85rem}
+    body{padding:4px 8px}
     .swp-wx{padding:3px 8px;margin-bottom:3px;border-radius:3px;background:rgba(255,255,255,.08)}
     .swp-alert{padding:3px 8px;margin-bottom:3px;border-radius:3px;font-weight:500}
     .swp-extreme{background:#7a0000;color:#fff}
@@ -75,7 +75,7 @@ ALERTS_HTML = """\
     var SEV={extreme:'swp-extreme',severe:'swp-severe',moderate:'swp-moderate',minor:'swp-minor'};
     function resizeParent(){
       try{
-        var h=document.documentElement.scrollHeight,fr=window.parent.document.querySelectorAll('iframe');
+        var h=document.body.scrollHeight,fr=window.parent.document.querySelectorAll('iframe');
         for(var i=0;i<fr.length;i++){
           try{if(fr[i].contentWindow===window){fr[i].style.height=h+'px';break;}}catch(e){}
         }
