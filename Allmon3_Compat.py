@@ -58,10 +58,11 @@ ALERTS_HTML = """\
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <link rel="stylesheet" href="css/bootstrap.min.css">
   <style>
-    html,body{margin:0;padding:0;height:auto!important;min-height:0!important;background:transparent;font-size:.85rem}
+    html,body{margin:0;padding:0;height:auto!important;min-height:0!important;background:transparent;font-size:1rem}
     body{padding:4px 8px}
-    .swp-wx{padding:3px 8px;margin-bottom:3px;border-radius:3px;background:rgba(255,255,255,.08)}
-    .swp-alert{padding:3px 8px;margin-bottom:3px;border-radius:3px;font-weight:500}
+    .swp-wx{padding:4px 8px;margin-bottom:3px;border-radius:3px;background:rgba(255,255,255,.08);text-align:center}
+    .swp-wx-title{font-weight:600;margin-bottom:2px}
+    .swp-alert{padding:3px 8px;margin-bottom:3px;border-radius:3px;font-weight:500;text-align:center}
     .swp-extreme{background:#7a0000;color:#fff}
     .swp-severe{background:#b83200;color:#fff}
     .swp-moderate{background:#9a5a00;color:#fff}
@@ -84,9 +85,17 @@ ALERTS_HTML = """\
     function render(d){
       var h='';
       if(d.weather){
-        var w=d.weather,lbl=d.weather_label?d.weather_label+': ':'';
-        h+='<div class="swp-wx">'+lbl+w.temp_f+'&deg;F &nbsp;|&nbsp; Humidity: '+w.humidity+
-           '% &nbsp;|&nbsp; Wind: '+w.wind_dir+' '+w.wind_mph+' mph &nbsp;|&nbsp; '+w.condition+'</div>';
+        var w=d.weather;
+        var title='Weather conditions';
+        if(d.weather_label) title+=': '+d.weather_label;
+        if(d.weather_location) title+=' - '+d.weather_location;
+        h+='<div class="swp-wx">'+
+           '<div class="swp-wx-title">'+title+'</div>'+
+           '<div>Temperature: '+w.temp_f+'&deg;F, '+w.temp_c+'&deg;C'+
+           ' &nbsp;|&nbsp; Humidity: '+w.humidity+'%'+
+           ' &nbsp;|&nbsp; Wind: '+w.wind_dir+' '+w.wind_mph+' mph'+
+           ' &nbsp;|&nbsp; '+w.condition+'</div>'+
+           '</div>';
       }
       (d.alerts||[]).forEach(function(a){
         var c=SEV[(a.severity||'').toLowerCase()]||'swp-unknown';
@@ -156,6 +165,7 @@ def get_weather(location):
         cc = resp.json()["current_condition"][0]
         return {
             "temp_f":    cc.get("temp_F", "?"),
+            "temp_c":    cc.get("temp_C", "?"),
             "humidity":  cc.get("humidity", "?"),
             "wind_mph":  cc.get("windspeedMiles", "?"),
             "wind_dir":  cc.get("winddir16Point", "?"),
@@ -213,8 +223,9 @@ def main():
         "generated": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
     if weather:
-        payload["weather"]       = weather
-        payload["weather_label"] = weather_label
+        payload["weather"]          = weather
+        payload["weather_label"]    = weather_label
+        payload["weather_location"] = weather_loc
 
     json_path = os.path.join(web_root, "swp-data.json")
     with open(json_path, "w") as f:
