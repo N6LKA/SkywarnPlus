@@ -431,7 +431,10 @@ Logging:
 
 Allmon3:
   # Enable Allmon3 integration. When enabled, Allmon3_Compat.py (running as root via cron)
-  # writes swp-data.json and swp-alerts.html to the Allmon3 web root every minute.
+  # writes swp-alerts.html to the Allmon3 web root every minute, and the web root's
+  # swp-data.json becomes a symlink to the canonical /tmp/SkywarnPlus/swp-data.json file
+  # (see WeatherEnable below — that file is written regardless of this setting, so other
+  # programs on this system can read current weather without polling an API themselves).
   # Add 'iframepre = swp-alerts.html' to the desired node stanza in /etc/allmon3/allmon3.ini
   # to display the panel above that node's connection list in Allmon3.
   Enable: false
@@ -439,9 +442,11 @@ Allmon3:
   # Path to the Allmon3 web root directory.
   WebRoot: /usr/share/allmon3
 
-  # Enable current weather conditions display above the alert list.
-  # See WeatherProvider below to choose between wttr.in (free, no key) or
-  # Weather Underground PWS (requires API key and station ID).
+  # Enable current weather conditions fetch. Independent of Allmon3 integration above —
+  # weather is always written to /tmp/SkywarnPlus/swp-data.json when enabled, whether or
+  # not Enable (the Allmon3 iframe display) is also turned on.
+  # See WeatherProvider below to choose between wttr.in (free, no key), Weather
+  # Underground PWS, or a WeatherFlow Tempest station.
   WeatherEnable: false
 
   # Location for weather lookup. Accepts ZIP code, city name, or ICAO airport code.
@@ -477,7 +482,15 @@ Allmon3:
 
   # Your Tempest station ID. Leave blank to auto-detect the first station on your account.
   # Find your station ID in the Tempest app under Station > Settings, or at tempest.earth.
+  # Once auto-detected, the resolved ID is cached locally so the lookup itself only ever
+  # runs once per token, not on every cron run.
   TempestStationID: ""
+
+  # How fresh (in minutes) the last successful weather reading must be before
+  # Allmon3_Compat.py skips calling the weather API again. The cron entry runs every
+  # minute regardless (for alert checking), but the weather API itself is only actually
+  # called this often — same idea as Time-Weather-Announce's CACHE_MAX_AGE_MIN.
+  WeatherCacheMaxAgeMin: 10
 
 ################################################################################################################################
 
