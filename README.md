@@ -918,12 +918,14 @@ SkywarnPlus can display active weather alerts and current conditions directly in
 
 A companion script, `Allmon3_Compat.py`, runs every minute as `root` via cron alongside the main SkywarnPlus process. Each run it:
 
-1. Reads the current alert state from `/tmp/SkywarnPlus/data.json`
-2. Optionally fetches current weather conditions from wttr.in (free, no key), Weather Underground PWS, or your WeatherFlow Tempest station directly
-3. Writes `swp-data.json` to the Allmon3 web root — a compact JSON file containing active alerts and weather data
-4. Writes `swp-alerts.html` to the Allmon3 web root on the first run — a self-refreshing display page that fetches `swp-data.json` every 60 seconds
+1. Reads the current alert state from `/tmp/SkywarnPlus/data.json` (only when Allmon3 integration is enabled — see below)
+2. Optionally fetches current weather conditions from wttr.in (free, no key), Weather Underground PWS, or your WeatherFlow Tempest station directly — throttled by `WeatherCacheMaxAgeMin` (default 10 minutes) so the weather API itself isn't hit every single minute even though the cron job runs that often
+3. Writes the combined alerts+weather payload to the canonical file `/tmp/SkywarnPlus/swp-data.json` — **always, whenever weather is enabled, regardless of whether Allmon3 integration is on.** Other programs on the same system (e.g. asl3-herald) can read this file directly to get current weather without polling an API themselves
+4. When Allmon3 integration is enabled: writes that same already-fetched payload as a second, independent `swp-data.json` inside the Allmon3 web root (a real file, not a symlink — Apache won't serve a symlinked static file without `FollowSymLinks` enabled, which isn't safe to assume on other people's installs), plus `swp-alerts.html` — a self-refreshing display page that fetches `swp-data.json` every 60 seconds
 
 Allmon3 loads `swp-alerts.html` into an iframe for each node you configure. Because Allmon3's iframe implementation auto-sizes to the page content, the iframe collapses to zero when there are no alerts or weather to show.
+
+Weather data (all three providers) now includes a `feels_like_f`/`feels_like_c` apparent-temperature reading alongside actual temperature. For Wunderground, which has no single "feels like" field in its PWS API, this is approximated using the same convention the National Weather Service uses: heat index above 80°F, wind chill below 50°F, actual temperature otherwise.
 
 > [!IMPORTANT]
 > ## Important Note About ASL3
@@ -954,7 +956,10 @@ Allmon3:
 
   # Required only when WeatherProvider: tempest
   TempestToken: ""
-  TempestStationID: ""              # leave blank to auto-detect
+  TempestStationID: ""              # leave blank to auto-detect (the resolved ID is then cached, so this lookup only happens once)
+
+  # How fresh (minutes) a weather reading must be before the API is called again
+  WeatherCacheMaxAgeMin: 10
 ```
 
 #### Weather Provider Options

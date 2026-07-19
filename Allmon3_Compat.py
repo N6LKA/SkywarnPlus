@@ -4,8 +4,17 @@
 Allmon3_Compat.py
 ===============================================================================
 Companion script for SkywarnPlus that writes active NWS weather alerts and
-(optionally) current weather conditions to the Allmon3 web root so they can
-be displayed via Allmon3's iframepre/iframepost feature.
+(optionally) current weather conditions to a canonical JSON file so they can
+be displayed via Allmon3's iframepre/iframepost feature and/or consumed by
+other programs (e.g. asl3-herald) that just want current weather data.
+
+Weather is always written to /tmp/SkywarnPlus/swp-data.json regardless of
+whether Allmon3 integration is enabled — there is only ever one weather API
+fetch per run either way. When Allmon3 integration IS enabled, the same
+already-fetched payload is also written as a second, independent regular
+file at the Allmon3 web root (not a symlink — Apache won't serve a symlinked
+static file unless FollowSymLinks is enabled in the vhost, which isn't a
+safe assumption across other people's installs).
 
 On ASL3, SkywarnPlus runs as the 'asterisk' user which cannot write to
 /usr/share/allmon3/. This script runs as root via a separate cron entry,
@@ -44,6 +53,16 @@ BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 CONFIG_FILE = os.path.join(BASE_DIR, "config.yaml")
 COUNTY_CODES_PATH = os.path.join(BASE_DIR, "CountyCodes.md")
 DATA_FILE = "/tmp/SkywarnPlus/data.json"
+
+# Canonical, always-written weather+alerts output — independent of whether
+# Allmon3 integration is enabled. Other programs (e.g. asl3-herald) can read
+# this directly instead of polling a weather API themselves.
+CANONICAL_DATA_FILE = "/tmp/SkywarnPlus/swp-data.json"
+
+# Caches to avoid hitting weather APIs more often than necessary.
+WEATHER_CACHE_FILE = "/tmp/SkywarnPlus/weather-cache.json"
+TEMPEST_STATION_CACHE_FILE = "/tmp/SkywarnPlus/tempest-station.cache"
+DEFAULT_WEATHER_CACHE_MAX_AGE_MIN = 10
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
@@ -158,6 +177,95 @@ def degrees_to_cardinal(deg):
     return dirs[round(float(deg) / 22.5) % 16]
 
 
+def apparent_temp_f(temp_f, heat_index, wind_chill):
+    """Approximate NWS-style apparent ("feels like") temperature: heat index
+    when it's hot, wind chill when it's cold, otherwise the actual temp."""
+    try:
+        t = float(temp_f)
+    except (TypeError, ValueError):
+        return "?"
+    if heat_index is not None and t >= 80:
+        try:
+            return round(float(heat_index), 1)
+        except (TypeError, ValueError):
+            pass
+    if wind_chill is not None and t <= 50:
+        try:
+            return round(float(wind_chill), 1)
+        except (TypeError, ValueError):
+            pass
+    return round(t, 1)
+
+
+def write_json_file(path, payload):
+    """Write payload as a real, regular JSON file at path. If a symlink is
+    already there (e.g. left over from a prior version of this script that
+    used one), remove it first — writing through a symlink would silently
+    write to its target instead of replacing it, and Apache won't serve a
+    symlinked static file unless FollowSymLinks is enabled, which isn't a
+    safe assumption across other people's installs."""
+    if os.path.islink(path):
+        os.remove(path)
+    with open(path, "w") as f:
+        json.dump(payload, f)
+
+
+def load_weather_cache():
+    try:
+        with open(WEATHER_CACHE_FILE, "r") as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+
+def save_weather_cache(provider, weather):
+    try:
+        os.makedirs(os.path.dirname(WEATHER_CACHE_FILE), exist_ok=True)
+        with open(WEATHER_CACHE_FILE, "w") as f:
+            json.dump(
+                {
+                    "provider": provider,
+                    "weather": weather,
+                    "fetched": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                },
+                f,
+            )
+    except Exception as exc:
+        logging.warning("Could not write weather cache: %s", exc)
+
+
+def weather_cache_is_fresh(cache, provider, max_age_min):
+    if not cache or cache.get("provider") != provider:
+        return False
+    try:
+        fetched = datetime.datetime.fromisoformat(cache["fetched"])
+    except Exception:
+        return False
+    age = datetime.datetime.now(datetime.timezone.utc) - fetched
+    return age.total_seconds() < max_age_min * 60
+
+
+def load_cached_tempest_station_id(token):
+    """Returns a previously auto-detected station ID for this token, if any."""
+    try:
+        with open(TEMPEST_STATION_CACHE_FILE, "r") as f:
+            data = json.load(f)
+        if data.get("token") == token:
+            return data.get("station_id")
+    except Exception:
+        pass
+    return None
+
+
+def save_cached_tempest_station_id(token, station_id):
+    try:
+        os.makedirs(os.path.dirname(TEMPEST_STATION_CACHE_FILE), exist_ok=True)
+        with open(TEMPEST_STATION_CACHE_FILE, "w") as f:
+            json.dump({"token": token, "station_id": station_id}, f)
+    except Exception as exc:
+        logging.warning("Could not write Tempest station-id cache: %s", exc)
+
+
 def get_weather_wttr(location):
     """Fetch weather from wttr.in (no API key required). Wind gust not available."""
     if not location:
@@ -178,6 +286,8 @@ def get_weather_wttr(location):
             "wind_dir":      cc.get("winddir16Point", "?"),
             "wind_gust_mph": None,
             "condition":     cc["weatherDesc"][0]["value"] if cc.get("weatherDesc") else "",
+            "feels_like_f":  cc.get("FeelsLikeF", "?"),
+            "feels_like_c":  cc.get("FeelsLikeC", "?"),
         }
     except Exception as exc:
         logging.warning("wttr.in fetch failed: %s", exc)
@@ -203,6 +313,10 @@ def get_weather_wunderground(api_key, station):
         temp_f = imperial.get("temp", "?")
         temp_c = round((float(temp_f) - 32) * 5 / 9, 1) if temp_f != "?" else "?"
         gust = imperial.get("windGust")
+        # The PWS API has no single "feels like" field — approximate it from
+        # heat index (hot) / wind chill (cold), same convention as NWS.
+        feels_f = apparent_temp_f(temp_f, imperial.get("heatIndex"), imperial.get("windChill"))
+        feels_c = round((float(feels_f) - 32) * 5 / 9, 1) if feels_f != "?" else "?"
         return {
             "temp_f":        str(temp_f),
             "temp_c":        str(temp_c),
@@ -211,6 +325,8 @@ def get_weather_wunderground(api_key, station):
             "wind_dir":      degrees_to_cardinal(imperial.get("winddir", 0)),
             "wind_gust_mph": str(gust) if gust is not None else None,
             "condition":     "",
+            "feels_like_f":  str(feels_f),
+            "feels_like_c":  str(feels_c),
         }
     except Exception as exc:
         logging.warning("Wunderground fetch failed: %s", exc)
@@ -225,7 +341,8 @@ def get_weather_tempest(token, station_id):
         logging.warning("Tempest requires TempestToken")
         return None
     try:
-        if not station_id:
+        resolved_station_id = station_id or load_cached_tempest_station_id(token)
+        if not resolved_station_id:
             resp = requests.get(
                 "https://swd.weatherflow.com/swd/rest/stations?token={}".format(token),
                 timeout=10,
@@ -237,12 +354,13 @@ def get_weather_tempest(token, station_id):
             if not stations:
                 logging.warning("Tempest: no stations found for this token")
                 return None
-            station_id = stations[0]["station_id"]
-            logging.info("Tempest: auto-detected station ID %s", station_id)
+            resolved_station_id = stations[0]["station_id"]
+            logging.info("Tempest: auto-detected station ID %s", resolved_station_id)
+            save_cached_tempest_station_id(token, resolved_station_id)
 
         resp = requests.get(
             "https://swd.weatherflow.com/swd/rest/better_forecast"
-            "?station_id={}&token={}".format(station_id, token),
+            "?station_id={}&token={}".format(resolved_station_id, token),
             timeout=10,
         )
         if resp.status_code != 200:
@@ -251,6 +369,8 @@ def get_weather_tempest(token, station_id):
         cc = resp.json().get("current_conditions", {})
         temp_c = cc.get("air_temperature", "?")
         temp_f = round(float(temp_c) * 9 / 5 + 32, 1) if temp_c != "?" else "?"
+        feels_c = cc.get("feels_like", "?")
+        feels_f = round(float(feels_c) * 9 / 5 + 32, 1) if feels_c != "?" else "?"
         wind_ms = cc.get("wind_avg", 0)
         wind_mph = round(float(wind_ms) * 2.23694, 1) if wind_ms is not None else "?"
         gust_ms = cc.get("wind_gust")
@@ -264,6 +384,8 @@ def get_weather_tempest(token, station_id):
             "wind_dir":      wind_card,
             "wind_gust_mph": str(gust_mph) if gust_mph is not None else None,
             "condition":     cc.get("conditions", ""),
+            "feels_like_f":  str(feels_f),
+            "feels_like_c":  str(feels_c),
         }
     except Exception as exc:
         logging.warning("Tempest fetch failed: %s", exc)
@@ -282,11 +404,13 @@ def main():
     config = load_config()
     cfg = config.get("Allmon3", {})
 
-    if not cfg.get("Enable", False):
+    allmon3_enabled = cfg.get("Enable", False)
+    weather_on      = cfg.get("WeatherEnable", False)
+
+    if not allmon3_enabled and not weather_on:
         return
 
     web_root         = cfg.get("WebRoot", "/usr/share/allmon3")
-    weather_on       = cfg.get("WeatherEnable", False)
     weather_loc      = cfg.get("WeatherLocation", "")
     weather_label    = cfg.get("WeatherLabel", "")
     weather_provider = cfg.get("WeatherProvider", "wttr").lower()
@@ -294,43 +418,53 @@ def main():
     wu_station       = cfg.get("WundergroundStation", "")
     tempest_token    = cfg.get("TempestToken", "")
     tempest_station  = cfg.get("TempestStationID", "")
-
-    state       = load_state()
-    county_data = load_county_names()
+    cache_max_age    = cfg.get("WeatherCacheMaxAgeMin", DEFAULT_WEATHER_CACHE_MAX_AGE_MIN)
 
     alerts = []
-    for title, entries in state["last_alerts"].items():
-        counties = sorted(
-            set(county_data.get(e["county_code"], e["county_code"]) for e in entries)
-        )
-        severity_raw = entries[0].get("severity", 0) if entries else 0
-        severity = SEVERITY_NAMES.get(severity_raw, "Unknown") if isinstance(severity_raw, int) else str(severity_raw)
-        end_time = entries[0].get("end_time_utc", "") if entries else ""
-        alerts.append({
-            "title":    title,
-            "severity": severity,
-            "counties": counties,
-            "end_time": end_time,
-        })
+    if allmon3_enabled:
+        state       = load_state()
+        county_data = load_county_names()
+        for title, entries in state["last_alerts"].items():
+            counties = sorted(
+                set(county_data.get(e["county_code"], e["county_code"]) for e in entries)
+            )
+            severity_raw = entries[0].get("severity", 0) if entries else 0
+            severity = SEVERITY_NAMES.get(severity_raw, "Unknown") if isinstance(severity_raw, int) else str(severity_raw)
+            end_time = entries[0].get("end_time_utc", "") if entries else ""
+            alerts.append({
+                "title":    title,
+                "severity": severity,
+                "counties": counties,
+                "end_time": end_time,
+            })
 
     weather = None
     if weather_on:
         if requests is None:
             logging.error("requests library not available")
-        elif weather_provider == "wunderground":
-            weather = get_weather_wunderground(wu_api_key, wu_station)
-            if weather is None:
-                logging.warning("Wunderground failed, falling back to wttr.in")
-                weather = get_weather_wttr(weather_loc)
-        elif weather_provider == "tempest":
-            weather = get_weather_tempest(tempest_token, tempest_station)
-            if weather is None:
-                logging.warning("Tempest failed, falling back to wttr.in")
-                weather = get_weather_wttr(weather_loc)
         else:
-            weather = get_weather_wttr(weather_loc)
+            cache = load_weather_cache()
+            if weather_cache_is_fresh(cache, weather_provider, cache_max_age):
+                weather = cache["weather"]
+            else:
+                if weather_provider == "wunderground":
+                    weather = get_weather_wunderground(wu_api_key, wu_station)
+                    if weather is None:
+                        logging.warning("Wunderground failed, falling back to wttr.in")
+                        weather = get_weather_wttr(weather_loc)
+                elif weather_provider == "tempest":
+                    weather = get_weather_tempest(tempest_token, tempest_station)
+                    if weather is None:
+                        logging.warning("Tempest failed, falling back to wttr.in")
+                        weather = get_weather_wttr(weather_loc)
+                else:
+                    weather = get_weather_wttr(weather_loc)
 
-    os.makedirs(web_root, exist_ok=True)
+                if weather:
+                    save_weather_cache(weather_provider, weather)
+                elif cache:
+                    logging.warning("Weather fetch failed, reusing last cached reading")
+                    weather = cache["weather"]
 
     payload = {
         "alerts":    alerts,
@@ -340,15 +474,25 @@ def main():
         payload["weather"]       = weather
         payload["weather_label"] = weather_label
 
-    json_path = os.path.join(web_root, "swp-data.json")
-    with open(json_path, "w") as f:
-        json.dump(payload, f)
+    os.makedirs(os.path.dirname(CANONICAL_DATA_FILE), exist_ok=True)
+    write_json_file(CANONICAL_DATA_FILE, payload)
 
-    html_path = os.path.join(web_root, "swp-alerts.html")
-    with open(html_path, "w") as f:
-        f.write(ALERTS_HTML)
+    if allmon3_enabled:
+        os.makedirs(web_root, exist_ok=True)
 
-    logging.info("Wrote %s and %s (%d alert(s))", json_path, html_path, len(alerts))
+        web_json_path = os.path.join(web_root, "swp-data.json")
+        write_json_file(web_json_path, payload)
+
+        html_path = os.path.join(web_root, "swp-alerts.html")
+        with open(html_path, "w") as f:
+            f.write(ALERTS_HTML)
+
+        logging.info(
+            "Wrote %s and %s and %s (%d alert(s))",
+            CANONICAL_DATA_FILE, web_json_path, html_path, len(alerts),
+        )
+    else:
+        logging.info("Wrote %s (%d alert(s))", CANONICAL_DATA_FILE, len(alerts))
 
 
 if __name__ == "__main__":
