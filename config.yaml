@@ -431,10 +431,10 @@ Logging:
 
 Allmon3:
   # Enable Allmon3 integration. When enabled, Allmon3_Compat.py (running as root via cron)
-  # writes swp-alerts.html to the Allmon3 web root every minute, and the web root's
-  # swp-data.json becomes a symlink to the canonical /tmp/SkywarnPlus/swp-data.json file
-  # (see WeatherEnable below — that file is written regardless of this setting, so other
-  # programs on this system can read current weather without polling an API themselves).
+  # writes swp-data.json and swp-alerts.html to the Allmon3 web root every minute.
+  # swp-data.json is also always written to /tmp/SkywarnPlus/swp-data.json regardless of
+  # this setting (see WeatherEnable below), so other programs on this system can read
+  # current weather without polling an API themselves — same fetch, two files, not two polls.
   # Add 'iframepre = swp-alerts.html' to the desired node stanza in /etc/allmon3/allmon3.ini
   # to display the panel above that node's connection list in Allmon3.
   Enable: false

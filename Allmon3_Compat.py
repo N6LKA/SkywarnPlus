@@ -9,10 +9,12 @@ be displayed via Allmon3's iframepre/iframepost feature and/or consumed by
 other programs (e.g. asl3-herald) that just want current weather data.
 
 Weather is always written to /tmp/SkywarnPlus/swp-data.json regardless of
-whether Allmon3 integration is enabled. When Allmon3 integration IS enabled,
-the Allmon3 web root's copy of swp-data.json is a symlink to that canonical
-file rather than a second independent write, so there is exactly one on-disk
-copy of the data no matter how many consumers read it.
+whether Allmon3 integration is enabled — there is only ever one weather API
+fetch per run either way. When Allmon3 integration IS enabled, the same
+already-fetched payload is also written as a second, independent regular
+file at the Allmon3 web root (not a symlink — Apache won't serve a symlinked
+static file unless FollowSymLinks is enabled in the vhost, which isn't a
+safe assumption across other people's installs).
 
 On ASL3, SkywarnPlus runs as the 'asterisk' user which cannot write to
 /usr/share/allmon3/. This script runs as root via a separate cron entry,
@@ -195,17 +197,17 @@ def apparent_temp_f(temp_f, heat_index, wind_chill):
     return round(t, 1)
 
 
-def ensure_symlink(link_path, target_path):
-    """Idempotently ensure link_path is a symlink pointing at target_path.
-    Replaces a stale regular file (e.g. left over from before swp-data.json
-    became a symlink) or a symlink pointing at the wrong target."""
-    if os.path.islink(link_path):
-        if os.readlink(link_path) == target_path:
-            return
-        os.remove(link_path)
-    elif os.path.exists(link_path):
-        os.remove(link_path)
-    os.symlink(target_path, link_path)
+def write_json_file(path, payload):
+    """Write payload as a real, regular JSON file at path. If a symlink is
+    already there (e.g. left over from a prior version of this script that
+    used one), remove it first — writing through a symlink would silently
+    write to its target instead of replacing it, and Apache won't serve a
+    symlinked static file unless FollowSymLinks is enabled, which isn't a
+    safe assumption across other people's installs."""
+    if os.path.islink(path):
+        os.remove(path)
+    with open(path, "w") as f:
+        json.dump(payload, f)
 
 
 def load_weather_cache():
@@ -473,21 +475,20 @@ def main():
         payload["weather_label"] = weather_label
 
     os.makedirs(os.path.dirname(CANONICAL_DATA_FILE), exist_ok=True)
-    with open(CANONICAL_DATA_FILE, "w") as f:
-        json.dump(payload, f)
+    write_json_file(CANONICAL_DATA_FILE, payload)
 
     if allmon3_enabled:
         os.makedirs(web_root, exist_ok=True)
 
         web_json_path = os.path.join(web_root, "swp-data.json")
-        ensure_symlink(web_json_path, CANONICAL_DATA_FILE)
+        write_json_file(web_json_path, payload)
 
         html_path = os.path.join(web_root, "swp-alerts.html")
         with open(html_path, "w") as f:
             f.write(ALERTS_HTML)
 
         logging.info(
-            "Wrote %s (symlinked from %s) and %s (%d alert(s))",
+            "Wrote %s and %s and %s (%d alert(s))",
             CANONICAL_DATA_FILE, web_json_path, html_path, len(alerts),
         )
     else:
