@@ -1,6 +1,7 @@
 ![SkywarnPlus Logo](https://raw.githubusercontent.com/N6LKA/SkywarnPlus/main/Logo_SWP.svg)
 
-> **Notice: this fork is no longer being actively developed.** I found [SkywarnPlus-NG](https://github.com/hardenedpenguin/SkywarnPlus-NG) — an actively maintained, more feature-complete version of SkywarnPlus — and rather than keep developing my own changes here in parallel and leaving multiple versions of SkywarnPlus with different features scattered around, I've made the decision to transition my own node to SkywarnPlus-NG and recommend other users of this fork consider doing the same. Thanks to everyone who has used or contributed to this project over the years.
+> [!CAUTION]
+> **This repository is no longer maintained and is archived for historical reference.** I found [SkywarnPlus-NG](https://github.com/hardenedpenguin/SkywarnPlus-NG) — an actively maintained, more feature-complete version of SkywarnPlus — and rather than keep developing my own changes here in parallel and leaving multiple versions of SkywarnPlus with different features scattered around, I've made the decision to transition my own node to SkywarnPlus-NG and recommend other users of this fork consider doing the same.
 
 ![Release Version](https://img.shields.io/github/v/release/N6LKA/SkywarnPlus?label=Version&color=f15d24)
 ![Release Date](https://img.shields.io/github/release-date/N6LKA/SkywarnPlus?label=Released&color=f15d24)
